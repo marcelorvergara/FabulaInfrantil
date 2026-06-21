@@ -1,10 +1,24 @@
 import Image from "next/image";
 import { IResult } from "@/interfaces/IResult";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import styled, { css, keyframes } from "styled-components";
 import LoadingSpinner from "./SpinnerAnimation";
 import Modal from "./Modal";
 import { useTypewriter } from "@/helpers/useTypewriter";
+
+function parseStoryAndOptions(text: string): { storyText: string; options: string[] } {
+  const match = text.match(/\nOpção 1/);
+  if (!match || match.index === undefined) return { storyText: text, options: [] };
+  const storyText = text.slice(0, match.index).trim();
+  const optionsBlock = text.slice(match.index);
+  const options: string[] = [];
+  const optionRegex = /Opção \d+[:.]\s*(.+)/g;
+  let m;
+  while ((m = optionRegex.exec(optionsBlock)) !== null) {
+    options.push(m[1].trim());
+  }
+  return { storyText, options };
+}
 
 const CenterFP = styled.section`
   width: 95%;
@@ -39,6 +53,10 @@ const FPDiv = styled.div<TSStyledClickd>`
 
 const Content = styled.div<TSStyledClickd>`
   overflow-y: auto;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
   /* hide content when page has changed */
   ${(props) => {
     if (props.hasClicked) {
@@ -64,19 +82,22 @@ const Wrapper = styled.div`
   box-sizing: border-box;
 `;
 
-const Item = styled.div`
+const ItemLabel = styled.label<{ isSelected: boolean }>`
   display: flex;
   align-items: center;
   height: 48px;
   position: relative;
-  border: 1px solid #ccc;
+  border: 1px solid ${(props) => (props.isSelected ? "palevioletred" : "#ccc")};
   box-sizing: border-box;
   border-radius: 2px;
   margin-bottom: 10px;
   margin-top: 16px;
+  cursor: pointer;
+  background: ${(props) => (props.isSelected ? "#fce4ec" : "transparent")};
+  transition: background 0.15s, border-color 0.15s;
 `;
 
-const RadioButtonLabel = styled.label`
+const RadioButtonIndicator = styled.span`
   position: absolute;
   top: 25%;
   left: 4px;
@@ -85,7 +106,9 @@ const RadioButtonLabel = styled.label`
   border-radius: 20%;
   background: white;
   border: 1px solid #ccc;
+  pointer-events: none;
 `;
+
 const RadioButton = styled.input`
   opacity: 0;
   z-index: 1;
@@ -93,31 +116,16 @@ const RadioButton = styled.input`
   width: 25px;
   height: 25px;
   margin-right: 10px;
-  &:hover ~ ${RadioButtonLabel} {
-    background: palevioletred;
-    &::after {
-      display: block;
-      color: white;
-      width: 12px;
-      height: 12px;
-      margin: 4px;
-    }
-  }
-  &:checked + ${Item} {
-    background: palevioletred;
-    border: 2px solid palevioletred;
-  }
-  &:checked + ${RadioButtonLabel} {
+  flex-shrink: 0;
+  &:checked + ${RadioButtonIndicator} {
     background: palevioletred;
     border: 1px solid palevioletred;
-    &::after {
-      display: block;
-      color: white;
-      width: 12px;
-      height: 12px;
-      margin: 4px;
-    }
   }
+`;
+
+const OptionText = styled.span`
+  font-size: 0.9rem;
+  padding-left: 4px;
 `;
 
 const Container = styled.div`
@@ -180,20 +188,46 @@ export default function ThirdPage({
   image,
 }: IThirdPageProps) {
   const [hasClicked, setHasClicked] = useState(false);
+  const [selectedValue, setSelectedValue] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [displayedText, typingDone] = useTypewriter(result?.result?.message?.content ?? "");
 
-  function handleOption(opt: string) {
-    onSendOption(opt);
-  }
+  const fullContent = result?.result?.message?.content ?? "";
+  const [displayedText, typingDone] = useTypewriter(fullContent);
+
+  const { storyText, parsedOptions } = useMemo(() => {
+    if (!typingDone) return { storyText: "", parsedOptions: [] as string[] };
+    const { storyText, options } = parseStoryAndOptions(fullContent);
+    return { storyText, parsedOptions: options };
+  }, [typingDone, fullContent]);
+
+  const textToRender = typingDone ? storyText : displayedText;
+
+  const optionItems =
+    parsedOptions.length >= 3
+      ? parsedOptions.slice(0, 3).map((text, i) => ({
+          id: `third_page_${i + 1}`,
+          value: text,
+          label: text,
+        }))
+      : [
+          { id: "third_page_1", value: "1", label: "Opção 1" },
+          { id: "third_page_2", value: "2", label: "Opção 2" },
+          { id: "third_page_3", value: "3", label: "Opção 3" },
+        ];
+
   function handleOptionChange(event: React.ChangeEvent<HTMLInputElement>) {
-    handleOption(event.target.value);
-    setHasClicked(true);
+    const val = event.target.value;
+    setSelectedValue(val);
+    setTimeout(() => {
+      onSendOption(val);
+      setHasClicked(true);
+    }, 300);
   }
 
   useEffect(() => {
     if (resetPage) {
       setHasClicked(false);
+      setSelectedValue(null);
     }
   }, [resetPage]);
 
@@ -207,7 +241,7 @@ export default function ThirdPage({
             <Wrapper>
               <Text>
                 {result?.result &&
-                  displayedText.split("\n").map((str: string, k: number) => {
+                  textToRender.split("\n").map((str: string, k: number) => {
                     if (k === 0) {
                       return (
                         <Container key={k}>
@@ -216,7 +250,7 @@ export default function ThirdPage({
                           ) : (
                             <ImageContainer
                               src={image}
-                              alt="Aqui deveria ter uma imagem"
+                              alt="Ilustração da história"
                               width={128}
                               height={128}
                               onClick={() => setIsModalOpen(true)}
@@ -237,39 +271,19 @@ export default function ThirdPage({
             </Wrapper>
             {typingDone && (
               <OptionsWrapper>
-                <Item>
-                  <RadioButton
-                    type="radio"
-                    name="radio"
-                    value="1"
-                    id="third_page_1"
-                    onChange={(event) => handleOptionChange(event)}
-                  />
-                  <RadioButtonLabel />
-                  <label htmlFor="third_page_1">Opção 1</label>
-                </Item>
-                <Item>
-                  <RadioButton
-                    type="radio"
-                    name="radio"
-                    value="2"
-                    id="third_page_2"
-                    onChange={(event) => handleOptionChange(event)}
-                  />
-                  <RadioButtonLabel />
-                  <label htmlFor="third_page_2">Opção 2</label>
-                </Item>
-                <Item>
-                  <RadioButton
-                    type="radio"
-                    name="radio"
-                    value="3"
-                    id="third_page_3"
-                    onChange={(event) => handleOptionChange(event)}
-                  />
-                  <RadioButtonLabel />
-                  <label htmlFor="third_page_3">Opção 3</label>
-                </Item>
+                {optionItems.map(({ id, value, label }) => (
+                  <ItemLabel key={id} htmlFor={id} isSelected={selectedValue === value}>
+                    <RadioButton
+                      type="radio"
+                      name="radio"
+                      value={value}
+                      id={id}
+                      onChange={handleOptionChange}
+                    />
+                    <RadioButtonIndicator />
+                    <OptionText>{label}</OptionText>
+                  </ItemLabel>
+                ))}
               </OptionsWrapper>
             )}
           </Content>
