@@ -93,17 +93,14 @@ export default function Home() {
   ]);
 
   const handleAge = (ageStr: string) => {
-    gtag("event", "age", { age: ageStr });
     setAge(ageStr);
   };
 
   const handleKw = async (kw: string) => {
     if (kw === "") {
       setKeyword("Uma história legal");
-      gtag("event", "kw", { hw: "none" });
     } else {
       setKeyword(kw);
-      gtag("event", "kw", { kw });
     }
 
     try {
@@ -147,7 +144,6 @@ export default function Home() {
   };
 
   const handleOption = async (text: string) => {
-    gtag("event", "opt_1", { opt: text });
     try {
       setIsLoading(true);
       if (result?.result.message) {
@@ -202,7 +198,6 @@ export default function Home() {
   };
 
   const handleOption2 = async (text: string) => {
-    gtag("event", "opt_2", { opt: text });
     try {
       setIsLoading(true);
       if (result?.result.message) {
@@ -273,7 +268,6 @@ export default function Home() {
   }, [resetPage]);
 
   async function shareStory() {
-    gtag("event", "share_story", { shared: true });
     const storyId = await shareStoryHelper(
       story,
       firstImage,
@@ -293,6 +287,7 @@ export default function Home() {
   }
 
   return (
+    <main>
     <FirstDiv>
       <MotherDiv>
         <Wrapper>
@@ -327,5 +322,6 @@ export default function Home() {
         </Wrapper>
       </MotherDiv>
     </FirstDiv>
+    </main>
   );
 }

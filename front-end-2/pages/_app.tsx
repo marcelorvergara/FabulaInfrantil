@@ -2,8 +2,6 @@ import "@/styles/globals.css";
 import type { AppProps } from "next/app";
 import { Analytics } from "@vercel/analytics/react";
 import Head from "next/head";
-import GoogleAnalytics from "@/components/GoogleAnalytics";
-import { isLocalhost } from "@/helpers/generalFunctions";
 
 const schema = {
   "@context": "https://schema.org",
@@ -27,7 +25,6 @@ export default function App({ Component, pageProps }: AppProps) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
         />
       </Head>
-      {!isLocalhost() && <GoogleAnalytics />}
       <Component {...pageProps} />
 
       <Analytics />
