@@ -1,24 +1,14 @@
-import { IResult } from "@/interfaces/IResult";
 import { useEffect, useState } from "react";
 import styled, { css } from "styled-components";
 
-const MAX_CHARS = 40;
-
-const SUGGESTIONS = [
-  "🦕 Dinossauro",
-  "🧜 Sereia",
-  "🚀 Astronauta",
-  "🐲 Dragão",
-  "🧙 Bruxinha",
-  "🦊 Raposa",
-];
+const MAX_CHARS = 30;
 
 const CenterFP = styled.section`
   width: 95%;
   margin: 6px auto;
 `;
 
-const FPDiv = styled.div<TSStyledClickd>`
+const FPDiv = styled.div<{ hasClicked: boolean }>`
   height: 870px;
   width: 310px;
   margin-top: 3px;
@@ -30,8 +20,7 @@ const FPDiv = styled.div<TSStyledClickd>`
   color: darkblue;
   font-size: 1.2rem;
   position: absolute;
-  z-index: -2;
-  /* the cover only opens once */
+  z-index: -3;
   ${(props) => {
     if (props.hasClicked) {
       return css`
@@ -44,8 +33,7 @@ const FPDiv = styled.div<TSStyledClickd>`
   }}
 `;
 
-const Content = styled.div<TSStyledClickd>`
-  /* hide content when page has changed */
+const Content = styled.div<{ hasClicked: boolean }>`
   ${(props) => {
     if (props.hasClicked) {
       return css`
@@ -84,7 +72,7 @@ const Hint = styled.p`
   font-size: 0.72rem;
   color: #888;
   text-align: center;
-  margin-bottom: 28px;
+  margin-bottom: 24px;
   font-style: italic;
   font-family: "Courier New", Courier, monospace;
 `;
@@ -120,7 +108,7 @@ const CharCount = styled.span<{ isNearLimit: boolean }>`
   text-align: right;
   font-size: 0.68rem;
   color: ${(props) => (props.isNearLimit ? "#d94f4f" : "#aaa")};
-  margin-bottom: 28px;
+  margin-bottom: 20px;
   font-family: "Courier New", Courier, monospace;
   transition: color 0.2s;
 `;
@@ -137,6 +125,7 @@ const Button = styled.button`
   font-family: "Courier New", Courier, monospace;
   box-shadow: 0 4px 16px rgba(255, 215, 0, 0.4);
   transition: transform 0.1s, box-shadow 0.1s;
+  margin-bottom: 14px;
   &:hover {
     transform: translateY(-2px);
     box-shadow: 0 6px 20px rgba(255, 215, 0, 0.5);
@@ -146,79 +135,54 @@ const Button = styled.button`
   }
 `;
 
-const ChipRow = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: center;
-  margin-bottom: 20px;
-`;
-
-const ChipButton = styled.button`
+const SkipButton = styled.button`
   cursor: pointer;
-  background: #fffff5;
-  border: 1.5px solid #c7bfff;
-  border-radius: 50px;
-  color: #3c3c5c;
+  background: transparent;
+  border: none;
+  color: #aaa;
   font-size: 0.78rem;
   font-family: "Courier New", Courier, monospace;
-  padding: 5px 12px;
-  transition: border-color 0.15s, background 0.15s;
+  text-decoration: underline;
+  padding: 4px 8px;
+  transition: color 0.15s;
   &:hover {
-    border-color: #7c6fcf;
-    background: #f0eeff;
-  }
-  &:active {
-    transform: scale(0.96);
+    color: #7c6fcf;
   }
 `;
 
-const Result = styled.div`
-  background-color: red;
-  color: white;
-`;
-
-type TSStyledClickd = {
-  hasClicked: boolean;
-};
-
-export interface IKeywordPageProps {
-  onSendKw: (text: string) => void;
+export interface IHeroPageProps {
+  onSendHero: (name: string) => void;
   resetPage: boolean;
-  result?: IResult;
 }
 
-export default function KeywordPage({
-  onSendKw,
-  resetPage,
-  result,
-}: IKeywordPageProps) {
+export default function HeroPage({ onSendHero, resetPage }: IHeroPageProps) {
   const [hasClicked, setHasClicked] = useState(false);
-  const [kw, setKw] = useState("");
+  const [name, setName] = useState("");
 
-  function handleKwChange(event: React.ChangeEvent<HTMLInputElement>) {
+  function handleNameChange(event: React.ChangeEvent<HTMLInputElement>) {
     if (event.target.value.length <= MAX_CHARS) {
-      setKw(event.target.value);
+      setName(event.target.value);
     }
   }
 
-  function sendBtn() {
-    onSendKw(kw);
+  function handleContinue() {
+    onSendHero(name.trim());
+    setHasClicked(true);
+  }
+
+  function handleSkip() {
+    onSendHero("");
     setHasClicked(true);
   }
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
-    if (event.key === "Enter") sendBtn();
-  }
-
-  function handleChipClick(suggestion: string) {
-    setKw(suggestion.slice(suggestion.indexOf(" ") + 1));
+    if (event.key === "Enter") handleContinue();
   }
 
   useEffect(() => {
     if (resetPage) {
       setHasClicked(false);
-      setKw("");
+      setName("");
     }
   }, [resetPage]);
 
@@ -226,30 +190,25 @@ export default function KeywordPage({
     <CenterFP>
       <FPDiv hasClicked={hasClicked}>
         <Content hasClicked={hasClicked}>
-          <Decoration>✨</Decoration>
-          <Prompt>Sobre o que será<br />a sua história?</Prompt>
-          <Hint>ex: dinossauro, fada do mar, robô viajante…</Hint>
-          <ChipRow>
-            {SUGGESTIONS.map((s) => (
-              <ChipButton key={s} onClick={() => handleChipClick(s)}>
-                {s}
-              </ChipButton>
-            ))}
-          </ChipRow>
+          <Decoration>🦸</Decoration>
+          <Prompt>
+            Como se chama<br />o herói da história?
+          </Prompt>
+          <Hint>deixe em branco para o herói não ter nome</Hint>
           <InputWrapper>
             <Input
-              id="keyword_select"
-              placeholder="uma palavra ou frase"
-              value={kw}
-              onChange={handleKwChange}
+              placeholder="ex: Luna, Pedro, Zara…"
+              value={name}
+              onChange={handleNameChange}
               onKeyDown={handleKeyDown}
+              autoFocus={false}
             />
           </InputWrapper>
-          <CharCount isNearLimit={kw.length >= MAX_CHARS - 5}>
-            {kw.length}/{MAX_CHARS}
+          <CharCount isNearLimit={name.length >= MAX_CHARS - 5}>
+            {name.length}/{MAX_CHARS}
           </CharCount>
-          <Button onClick={sendBtn}>Criar história</Button>
-          {result?.result && <Result>{result?.result.message.content}</Result>}
+          <Button onClick={handleContinue}>Continuar</Button>
+          <SkipButton onClick={handleSkip}>pular esta etapa</SkipButton>
         </Content>
       </FPDiv>
     </CenterFP>

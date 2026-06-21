@@ -22,6 +22,10 @@ const LastPage = dynamic(() => import("@/components/LastPage"), {
   loading: () => <div></div>,
   ssr: false,
 });
+const HeroPage = dynamic(() => import("@/components/HeroPage"), {
+  loading: () => <div></div>,
+  ssr: false,
+});
 const BackCover = dynamic(() => import("@/components/BackCover"), {
   loading: () => <div></div>,
   ssr: false,
@@ -129,25 +133,30 @@ export default function Home() {
       content: "",
     },
   ]);
+  const [heroName, setHeroName] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [shareStatus, setShareStatus] = useState<"idle" | "copied" | "error">("idle");
 
-  const handleAge = (ageStr: string) => {
-    setAge(ageStr);
-  };
-
-  const handleKw = async (kw: string) => {
+  const handleKw = (kw: string) => {
     const resolvedKw = kw === "" ? "Uma história legal" : kw;
     setKeyword(resolvedKw);
+  };
+
+  const handleHero = (name: string) => {
+    setHeroName(name);
+  };
+
+  const handleAge = async (ageStr: string) => {
+    setAge(ageStr);
     setErrorMessage(null);
 
     try {
       setIsLoading(true);
-      const res = await getText(resolvedKw, age);
+      const res = await getText(keyword, ageStr, undefined, heroName);
       const resultJson = (await res.json()) as IResult;
 
       setResult(resultJson);
-      setStory([resolvedKw]);
+      setStory([keyword]);
 
       if (resultJson.result.message.content.indexOf("\n") === -1) {
         setResetPage(true);
@@ -157,13 +166,14 @@ export default function Home() {
 
       setIsLoading(false);
 
+      const heroSnippet = heroName ? ` O herói se chama ${heroName}.` : "";
       setIsImage1Loading(true);
       generateImage(
         "gere uma figura  para uma criança com idade entre " +
-          age.replace("_", " e ") +
+          ageStr.replace("_", " e ") +
           " anos que resume o seguinte texto:\n" +
-          resolvedKw +
-          ".\n" +
+          keyword +
+          "." + heroSnippet + "\n" +
           getFirst60Percent(
             resultJson.result.message.content.replace("\\n", " ")
           )
@@ -198,7 +208,7 @@ export default function Home() {
           selectedOption,
         ];
         // send to the back-end
-        const resultOption = await getText(keyword, age, continueStory);
+        const resultOption = await getText(keyword, age, continueStory, heroName);
         const resultJson = (await resultOption.json()) as IResult;
         // store the first part to send to the backend
         setFirstPart([choosedOption, selectedOption]);
@@ -212,13 +222,14 @@ export default function Home() {
         // Unblock UI immediately — image loads in the background
         setIsLoading(false);
 
+        const heroSnippet2 = heroName ? ` O herói se chama ${heroName}.` : "";
         setIsImage2Loading(true);
         generateImage(
           "gere uma imgaem sem texto para uma criança com idade entre " +
             age.replace("_", " e ") +
             " anos sobre o seguinte texto: " +
             keyword +
-            ". " +
+            "." + heroSnippet2 + " " +
             getFirst60Percent(
               resultJson.result.message.content.replace("\\n", " ")
             )
@@ -251,7 +262,7 @@ export default function Home() {
             "gere o final da história com a opção escolhida e não dê mais opções para o usuário escolher",
         });
         // send to the back-end
-        const resultOption = await getText(keyword, age, continueStory);
+        const resultOption = await getText(keyword, age, continueStory, heroName);
         const resultJson = (await resultOption.json()) as IResult;
 
         setResult(resultJson);
@@ -267,13 +278,14 @@ export default function Home() {
         // Unblock UI immediately — image loads in the background
         setIsLoading(false);
 
+        const heroSnippet3 = heroName ? ` O herói se chama ${heroName}.` : "";
         setIsImage3Loading(true);
         generateImage(
           "gere uma imgaem sem texto para uma criança com idade entre " +
             age.replace("_", " e ") +
             " anos sobre o seguinte texto: " +
             keyword +
-            ". " +
+            "." + heroSnippet3 + " " +
             getFirst60Percent(
               resultJson.result.message.content.replace("\\n", " ")
             )
@@ -298,6 +310,7 @@ export default function Home() {
     setIsImage1Loading(false);
     setIsImage2Loading(false);
     setIsImage3Loading(false);
+    setHeroName("");
     setErrorMessage(null);
     setShareStatus("idle");
   };
@@ -345,12 +358,13 @@ export default function Home() {
             </ErrorCard>
           )}
           <Cover />
+          <AgePage onSendAge={handleAge} resetPage={resetPage} />
+          <HeroPage onSendHero={handleHero} resetPage={resetPage} />
           <KeywordPage
             onSendKw={handleKw}
             resetPage={resetPage}
             result={result}
           />
-          <AgePage onSendAge={handleAge} resetPage={resetPage} />
           <ThirdPage
             onSendOption={handleOption}
             resetPage={resetPage}

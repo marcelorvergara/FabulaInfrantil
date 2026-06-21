@@ -1,7 +1,8 @@
 export async function getText(
   kw: string,
   age: string,
-  continueStory?: Array<{ role: string; content: string }>
+  continueStory?: Array<{ role: string; content: string }>,
+  heroName?: string
 ) {
   const messages: { role: string; content: string }[] = [];
 
@@ -9,12 +10,14 @@ export async function getText(
     messages.push(...continueStory);
   }
 
+  const heroParam = heroName ? `?hero=${encodeURIComponent(heroName)}` : "";
+
   const fetchWithExponentialBackoff = async (
     attempt = 0
   ): Promise<Response> => {
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_SRV}/generate/${kw}/${age}`,
+        `${process.env.NEXT_PUBLIC_BACKEND_SRV}/generate/${kw}/${age}${heroParam}`,
         {
           method: "POST",
           headers: {

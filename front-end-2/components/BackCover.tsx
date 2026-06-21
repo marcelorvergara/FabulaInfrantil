@@ -17,7 +17,7 @@ const CoverBack = styled.div`
   color: white;
   font-size: 2.5rem;
   position: absolute;
-  z-index: -6;
+  z-index: -8;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -108,6 +108,25 @@ const RechargeHeading = styled.p`
   padding: 0 4px;
 `;
 
+const CelebrationBanner = styled.div`
+  width: 100%;
+  background: rgba(255, 215, 0, 0.12);
+  border: 1px solid rgba(255, 215, 0, 0.3);
+  border-radius: 10px;
+  padding: 12px 16px;
+  text-align: center;
+  margin-bottom: 16px;
+  box-sizing: border-box;
+`;
+
+const CelebrationText = styled.p`
+  font-size: 0.9rem;
+  color: #ffd700;
+  font-family: "Courier New", Courier, monospace;
+  line-height: 1.4;
+  margin: 0;
+`;
+
 const QrWrapper = styled.div`
   display: flex;
   flex-direction: column;
@@ -135,6 +154,10 @@ export default function BackCover({
   return (
     <CenterBook>
       <CoverBack>
+        <CelebrationBanner>
+          <CelebrationText>Você criou uma história incrível! 🎉</CelebrationText>
+        </CelebrationBanner>
+
         <BookTitle>Fábula Infantil</BookTitle>
 
         <ButtonRow>
@@ -164,8 +187,8 @@ export default function BackCover({
         </TokenSection>
 
         <RechargeHeading>
-          Tokens ficam mais caros todo mês. Se a história valeu, recarregue o
-          balde ✨
+          Mantenha a mágica viva ✨ cada história consome créditos de IA — se
+          valeu a pena, considere contribuir!
         </RechargeHeading>
 
         <QrWrapper>
