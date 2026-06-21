@@ -20,11 +20,11 @@ const FPDiv = styled.div<{ hasClicked: boolean }>`
   color: darkblue;
   font-size: 1.2rem;
   position: absolute;
-  z-index: -3;
+  z-index: 6;
   ${(props) => {
     if (props.hasClicked) {
       return css`
-        z-index: 1;
+        z-index: 9;
         transform: rotateX(10deg) rotateY(-180deg);
         transition-duration: 3s;
       `;

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import Image from "next/image";
+import { useEffect, useState } from "react";
 import styled, { css, keyframes } from "styled-components";
 
 const CenterBook = styled.section`
@@ -20,6 +21,7 @@ const CoverBack = styled.div<TSStyledCoverBack>`
       return css`
         transform: rotateX(10deg) rotateY(-180deg);
         transition-duration: 3s;
+        pointer-events: none;
       `;
     }
     return "";
@@ -27,7 +29,7 @@ const CoverBack = styled.div<TSStyledCoverBack>`
   color: white;
   font-size: 1.8rem;
   position: absolute;
-  z-index: 1;
+  z-index: 8;
 `;
 
 const fadeOut = keyframes`
@@ -153,6 +155,60 @@ const Teaser = styled.p<TSStyledCoverBack>`
     `}
 `;
 
+const HistorySection = styled.div`
+  position: absolute;
+  bottom: 16px;
+  left: 12px;
+  right: 12px;
+  z-index: 2;
+`;
+
+const HistoryTitle = styled.p`
+  font-size: 0.68rem;
+  color: rgba(255, 255, 255, 0.45);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-family: "Courier New", Courier, monospace;
+  margin-bottom: 6px;
+`;
+
+const HistoryItem = styled.a`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  text-decoration: none;
+  color: rgba(255, 255, 255, 0.72);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  transition: color 0.15s;
+  &:hover {
+    color: #ffd700;
+  }
+  &:last-child {
+    border-bottom: none;
+  }
+`;
+
+const HistoryInfo = styled.div`
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+`;
+
+const HistoryKeyword = styled.span`
+  font-size: 0.8rem;
+  font-family: "Courier New", Courier, monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+
+const HistoryDate = styled.span`
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.38);
+  margin-top: 1px;
+`;
+
 type TSStyledCoverBack = {
   hasHovered?: boolean;
 };
@@ -213,12 +269,27 @@ function WhimsicalSVG() {
   );
 }
 
+interface HistoryEntry {
+  storyId: string;
+  keyword: string;
+  firstImage: string;
+  date: string;
+}
+
 export default function Book() {
   const [hasHovered, setHasHovered] = useState(false);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
 
   const handleFlip = () => {
     if (!hasHovered) setHasHovered(true);
   };
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("fabula_history");
+      if (stored) setHistory(JSON.parse(stored));
+    } catch {}
+  }, []);
 
   return (
     <CenterBook id="cover">
@@ -235,10 +306,41 @@ export default function Book() {
           <Author display={"false"}>Para crianças de 0 a 14 anos</Author>
           <CTAButton onClick={handleFlip}>Criar minha história ✨</CTAButton>
         </Content>
-        <StarsWrapper hasHovered={hasHovered}>
-          <WhimsicalSVG />
-        </StarsWrapper>
-        <Teaser hasHovered={hasHovered}>3 passos para criar sua história</Teaser>
+        {history.length === 0 && (
+          <>
+            <StarsWrapper hasHovered={hasHovered}>
+              <WhimsicalSVG />
+            </StarsWrapper>
+            <Teaser hasHovered={hasHovered}>3 passos para criar sua história</Teaser>
+          </>
+        )}
+        {history.length > 0 && (
+          <HistorySection>
+            <HistoryTitle>Minhas Histórias</HistoryTitle>
+            {history.slice(0, 3).map((item) => (
+              <HistoryItem
+                key={item.storyId}
+                href={`https://story.fabulainfantil.com/shareStory/${item.storyId}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <Image
+                  src={item.firstImage}
+                  alt={item.keyword}
+                  width={36}
+                  height={36}
+                  style={{ borderRadius: 4, objectFit: "cover", flexShrink: 0 }}
+                />
+                <HistoryInfo>
+                  <HistoryKeyword>{item.keyword}</HistoryKeyword>
+                  <HistoryDate>
+                    {new Date(item.date).toLocaleDateString("pt-BR")}
+                  </HistoryDate>
+                </HistoryInfo>
+              </HistoryItem>
+            ))}
+          </HistorySection>
+        )}
       </CoverBack>
     </CenterBook>
   );

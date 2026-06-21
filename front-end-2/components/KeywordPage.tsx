@@ -30,12 +30,12 @@ const FPDiv = styled.div<TSStyledClickd>`
   color: darkblue;
   font-size: 1.2rem;
   position: absolute;
-  z-index: -2;
+  z-index: 7;
   /* the cover only opens once */
   ${(props) => {
     if (props.hasClicked) {
       return css`
-        z-index: 1;
+        z-index: 9;
         transform: rotateX(10deg) rotateY(-180deg);
         transition-duration: 3s;
       `;
@@ -146,30 +146,27 @@ const Button = styled.button`
   }
 `;
 
-const ChipRow = styled.div`
+const SuggestionsGrid = styled.div`
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   justify-content: center;
-  margin-bottom: 20px;
+  margin-bottom: 28px;
 `;
 
-const ChipButton = styled.button`
+const Chip = styled.button`
   cursor: pointer;
-  background: #fffff5;
+  background: #f0eeff;
   border: 1.5px solid #c7bfff;
-  border-radius: 50px;
+  border-radius: 20px;
   color: #3c3c5c;
+  padding: 6px 14px;
   font-size: 0.78rem;
   font-family: "Courier New", Courier, monospace;
-  padding: 5px 12px;
-  transition: border-color 0.15s, background 0.15s;
+  transition: background 0.15s, border-color 0.15s;
   &:hover {
+    background: #e0d8ff;
     border-color: #7c6fcf;
-    background: #f0eeff;
-  }
-  &:active {
-    transform: scale(0.96);
   }
 `;
 
@@ -211,10 +208,6 @@ export default function KeywordPage({
     if (event.key === "Enter") sendBtn();
   }
 
-  function handleChipClick(suggestion: string) {
-    setKw(suggestion.slice(suggestion.indexOf(" ") + 1));
-  }
-
   useEffect(() => {
     if (resetPage) {
       setHasClicked(false);
@@ -229,13 +222,6 @@ export default function KeywordPage({
           <Decoration>✨</Decoration>
           <Prompt>Sobre o que será<br />a sua história?</Prompt>
           <Hint>ex: dinossauro, fada do mar, robô viajante…</Hint>
-          <ChipRow>
-            {SUGGESTIONS.map((s) => (
-              <ChipButton key={s} onClick={() => handleChipClick(s)}>
-                {s}
-              </ChipButton>
-            ))}
-          </ChipRow>
           <InputWrapper>
             <Input
               id="keyword_select"
@@ -248,6 +234,13 @@ export default function KeywordPage({
           <CharCount isNearLimit={kw.length >= MAX_CHARS - 5}>
             {kw.length}/{MAX_CHARS}
           </CharCount>
+          <SuggestionsGrid>
+            {SUGGESTIONS.map((s) => (
+              <Chip key={s} onClick={() => setKw(s.replace(/^\S+\s/, ""))}>
+                {s}
+              </Chip>
+            ))}
+          </SuggestionsGrid>
           <Button onClick={sendBtn}>Criar história</Button>
           {result?.result && <Result>{result?.result.message.content}</Result>}
         </Content>

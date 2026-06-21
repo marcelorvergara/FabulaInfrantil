@@ -5,6 +5,7 @@ import styled, { css, keyframes } from "styled-components";
 import Modal from "./Modal";
 import LoadingSpinner from "./SpinnerAnimation";
 import { useTypewriter } from "@/helpers/useTypewriter";
+import TTSButton from "./TTSButton";
 
 const CenterFP = styled.section`
   width: 95%;
@@ -23,11 +24,11 @@ const FPDiv = styled.div<TSStyledClickd>`
   color: darkblue;
   font-size: 1.2rem;
   position: absolute;
-  z-index: -7;
+  z-index: 2;
   ${(props) => {
     if (props.hasClicked) {
       return css`
-        z-index: 1;
+        z-index: 9;
         transform: rotateX(10deg) rotateY(-180deg);
         transition-duration: 3s;
       `;
@@ -36,14 +37,20 @@ const FPDiv = styled.div<TSStyledClickd>`
   }}
 `;
 
+const BadgeRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 6px 0 2px 0;
+`;
+
 const ProgressBadge = styled.div`
   font-size: 0.65rem;
   color: #aaa;
-  text-align: center;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   font-family: "Courier New", Courier, monospace;
-  padding: 6px 0 2px 0;
 `;
 
 const Content = styled.div<TSStyledClickd>`
@@ -83,6 +90,9 @@ const Container = styled.div`
 const ImageContainer = styled(Image)`
   float: right;
   padding: 4px;
+  @media (min-width: 640px) {
+    display: none;
+  }
 `;
 
 const shimmer = keyframes`
@@ -99,6 +109,9 @@ const ImageSkeleton = styled.div`
   background: linear-gradient(90deg, #d0d0d0 25%, #e8e8e8 50%, #d0d0d0 75%);
   background-size: 200% 100%;
   animation: ${shimmer} 1.5s infinite;
+  @media (min-width: 640px) {
+    display: none;
+  }
 `;
 
 const Text = styled.div`
@@ -192,7 +205,10 @@ export default function LastPage({
           <LoadingSpinner></LoadingSpinner>
         ) : (
           <Content hasClicked={hasClicked}>
-            <ProgressBadge>Parte 3 de 3</ProgressBadge>
+            <BadgeRow>
+              <ProgressBadge>Parte 3 de 3</ProgressBadge>
+              {typingDone && <TTSButton text={result?.result?.message?.content ?? ""} />}
+            </BadgeRow>
             <Wrapper>
               <Text>
                 {result?.result &&

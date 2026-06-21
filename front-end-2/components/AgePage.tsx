@@ -25,12 +25,12 @@ const FPDiv = styled.div<TSStyledClickd>`
   color: darkblue;
   font-size: 1.2rem;
   position: absolute;
-  z-index: -4;
+  z-index: 5;
   /* the cover only opens once */
   ${(props) => {
     if (props.hasClicked) {
       return css`
-        z-index: 1;
+        z-index: 9;
         transform: rotateX(10deg) rotateY(-180deg);
         transition-duration: 3s;
       `;

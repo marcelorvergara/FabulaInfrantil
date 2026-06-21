@@ -30,6 +30,10 @@ const BackCover = dynamic(() => import("@/components/BackCover"), {
   loading: () => <div></div>,
   ssr: false,
 });
+const LeftPage = dynamic(() => import("@/components/LeftPage"), {
+  loading: () => <div></div>,
+  ssr: false,
+});
 import {
   generateImage,
   getText,
@@ -42,20 +46,13 @@ import { getFirst60Percent } from "@/helpers/generalFunctions";
 import dynamic from "next/dynamic";
 
 const FirstDiv = styled.div`
-  position: relative;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
   margin-top: 22px;
 `;
 
 const MotherDiv = styled.div`
-  position: relative;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  isolation: isolate;
   /* Styles for desktop */
   @media (min-width: 768px) {
     justify-content: center;
@@ -66,11 +63,27 @@ const MotherDiv = styled.div`
   }
 `;
 
-const Wrapper = styled.section`
-  padding: 2px;
-  margin-right: 18px;
-  padding-right: 12px;
+const BookSpread = styled.div`
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+`;
+
+const LeftSide = styled.div`
+  width: 310px;
+  height: 888px;
+  position: relative;
+  z-index: 10;
+  flex-shrink: 0;
+  @media (max-width: 639px) {
+    display: none;
+  }
+`;
+
+const RightSide = styled.div`
   width: 340px;
+  position: relative;
+  flex-shrink: 0;
 `;
 
 const ErrorCard = styled.div`
@@ -134,6 +147,7 @@ export default function Home() {
     },
   ]);
   const [heroName, setHeroName] = useState("");
+  const [currentPart, setCurrentPart] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [shareStatus, setShareStatus] = useState<"idle" | "copied" | "error">("idle");
 
@@ -165,6 +179,7 @@ export default function Home() {
       }
 
       setIsLoading(false);
+      setCurrentPart(1);
 
       const heroSnippet = heroName ? ` O herói se chama ${heroName}.` : "";
       setIsImage1Loading(true);
@@ -221,6 +236,7 @@ export default function Home() {
 
         // Unblock UI immediately — image loads in the background
         setIsLoading(false);
+        setCurrentPart(2);
 
         const heroSnippet2 = heroName ? ` O herói se chama ${heroName}.` : "";
         setIsImage2Loading(true);
@@ -277,6 +293,7 @@ export default function Home() {
 
         // Unblock UI immediately — image loads in the background
         setIsLoading(false);
+        setCurrentPart(3);
 
         const heroSnippet3 = heroName ? ` O herói se chama ${heroName}.` : "";
         setIsImage3Loading(true);
@@ -311,6 +328,7 @@ export default function Home() {
     setIsImage2Loading(false);
     setIsImage3Loading(false);
     setHeroName("");
+    setCurrentPart(0);
     setErrorMessage(null);
     setShareStatus("idle");
   };
@@ -332,6 +350,11 @@ export default function Home() {
     if (storyId !== null) {
       const storyIdJson = await storyId.json();
       const shareUrl = `https://story.fabulainfantil.com/shareStory/${storyIdJson}`;
+      try {
+        const prev = JSON.parse(localStorage.getItem("fabula_history") || "[]");
+        prev.unshift({ storyId: storyIdJson, keyword, firstImage, date: new Date().toISOString() });
+        localStorage.setItem("fabula_history", JSON.stringify(prev.slice(0, 10)));
+      } catch {}
       // time necessary to store images in storage
       setTimeout(function () {
         window.open(shareUrl);
@@ -350,43 +373,61 @@ export default function Home() {
     <main>
     <FirstDiv>
       <MotherDiv>
-        <Wrapper>
-          {errorMessage && (
-            <ErrorCard>
-              <ErrorText>{errorMessage}</ErrorText>
-              <RetryButton onClick={() => handleReset(true)}>Tentar novamente</RetryButton>
-            </ErrorCard>
-          )}
-          <Cover />
-          <AgePage onSendAge={handleAge} resetPage={resetPage} />
-          <HeroPage onSendHero={handleHero} resetPage={resetPage} />
-          <KeywordPage
-            onSendKw={handleKw}
-            resetPage={resetPage}
-            result={result}
-          />
-          <ThirdPage
-            onSendOption={handleOption}
-            resetPage={resetPage}
-            result={result}
-            isLoading={isLoading}
-            isImageLoading={isImage1Loading}
-            image={firstImage}></ThirdPage>
-          <FourthPage
-            onSendOption={handleOption2}
-            resetPage={resetPage}
-            result={result}
-            isLoading={isLoading}
-            isImageLoading={isImage2Loading}
-            image={secondImage}></FourthPage>
-          <LastPage
-            resetPage={resetPage}
-            result={result}
-            isLoading={isLoading}
-            isImageLoading={isImage3Loading}
-            image={thirdImage}></LastPage>
-          <BackCover onSendReset={handleReset} shareStory={shareStory} shareStatus={shareStatus} />
-        </Wrapper>
+        <BookSpread>
+          <LeftSide>
+            {currentPart > 0 && (
+              <LeftPage
+                currentPart={currentPart}
+                firstImage={firstImage}
+                secondImage={secondImage}
+                thirdImage={thirdImage}
+                isImage1Loading={isImage1Loading}
+                isImage2Loading={isImage2Loading}
+                isImage3Loading={isImage3Loading}
+              />
+            )}
+          </LeftSide>
+          <RightSide>
+            {errorMessage && (
+              <ErrorCard>
+                <ErrorText>{errorMessage}</ErrorText>
+                <RetryButton onClick={() => handleReset(true)}>Tentar novamente</RetryButton>
+              </ErrorCard>
+            )}
+            <Cover />
+            <AgePage onSendAge={handleAge} resetPage={resetPage} />
+            <HeroPage onSendHero={handleHero} resetPage={resetPage} />
+            <KeywordPage
+              onSendKw={handleKw}
+              resetPage={resetPage}
+              result={result}
+            />
+            <ThirdPage
+              onSendOption={handleOption}
+              resetPage={resetPage}
+              result={result}
+              isLoading={isLoading}
+              isImageLoading={isImage1Loading}
+              image={firstImage}
+            />
+            <FourthPage
+              onSendOption={handleOption2}
+              resetPage={resetPage}
+              result={result}
+              isLoading={isLoading}
+              isImageLoading={isImage2Loading}
+              image={secondImage}
+            />
+            <LastPage
+              resetPage={resetPage}
+              result={result}
+              isLoading={isLoading}
+              isImageLoading={isImage3Loading}
+              image={thirdImage}
+            />
+            <BackCover onSendReset={handleReset} shareStory={shareStory} shareStatus={shareStatus} />
+          </RightSide>
+        </BookSpread>
       </MotherDiv>
     </FirstDiv>
     </main>

@@ -17,7 +17,7 @@ const CoverBack = styled.div`
   color: white;
   font-size: 2.5rem;
   position: absolute;
-  z-index: -8;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
