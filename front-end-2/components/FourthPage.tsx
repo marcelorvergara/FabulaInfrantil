@@ -1,9 +1,10 @@
 import { IResult } from "@/interfaces/IResult";
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import styled, { css } from "styled-components";
+import styled, { css, keyframes } from "styled-components";
 import Modal from "./Modal";
 import LoadingSpinner from "./SpinnerAnimation";
+import { useTypewriter } from "@/helpers/useTypewriter";
 
 const CenterFP = styled.section`
   width: 95%;
@@ -23,7 +24,6 @@ const FPDiv = styled.div<TSStyledClickd>`
   font-size: 1.2rem;
   position: absolute;
   z-index: -4;
-  /* the cover only opens once */
   ${(props) => {
     if (props.hasClicked) {
       return css`
@@ -38,7 +38,6 @@ const FPDiv = styled.div<TSStyledClickd>`
 
 const Content = styled.div<TSStyledClickd>`
   overflow-y: auto;
-  /* hide content when page has changed */
   ${(props) => {
     if (props.hasClicked) {
       return css`
@@ -85,6 +84,7 @@ const RadioButtonLabel = styled.label`
   background: white;
   border: 1px solid #ccc;
 `;
+
 const RadioButton = styled.input`
   opacity: 0;
   z-index: 1;
@@ -128,8 +128,33 @@ const ImageContainer = styled(Image)`
   padding: 4px;
 `;
 
+const shimmer = keyframes`
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+`;
+
+const ImageSkeleton = styled.div`
+  float: right;
+  margin: 4px;
+  width: 128px;
+  height: 128px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #d0d0d0 25%, #e8e8e8 50%, #d0d0d0 75%);
+  background-size: 200% 100%;
+  animation: ${shimmer} 1.5s infinite;
+`;
+
 const Text = styled.div`
   margin: 0;
+`;
+
+const fadeIn = keyframes`
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+`;
+
+const OptionsWrapper = styled(Wrapper)`
+  animation: ${fadeIn} 0.4s ease forwards;
 `;
 
 type TSStyledClickd = {
@@ -140,6 +165,7 @@ export interface IFourthPageProps {
   onSendOption: (text: string) => void;
   result?: IResult;
   isLoading: boolean;
+  isImageLoading: boolean;
   resetPage: boolean;
   image: string;
 }
@@ -148,11 +174,13 @@ export default function FourthPage({
   onSendOption,
   result,
   isLoading,
+  isImageLoading,
   resetPage,
   image,
 }: IFourthPageProps) {
   const [hasClicked, setHasClicked] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [displayedText, typingDone] = useTypewriter(result?.result?.message?.content ?? "");
 
   function handleOption(opt: string) {
     onSendOption(opt);
@@ -178,17 +206,21 @@ export default function FourthPage({
             <Wrapper>
               <Text>
                 {result?.result &&
-                  result?.result.message.content.split("\n").map((str, k) => {
+                  displayedText.split("\n").map((str: string, k: number) => {
                     if (k === 0) {
                       return (
                         <Container key={k}>
-                          <ImageContainer
-                            src={image}
-                            alt="Aqui deveria ter uma imagem"
-                            width={128}
-                            height={128}
-                            onClick={() => setIsModalOpen(true)}
-                          />
+                          {isImageLoading ? (
+                            <ImageSkeleton />
+                          ) : (
+                            <ImageContainer
+                              src={image}
+                              alt="Aqui deveria ter uma imagem"
+                              width={128}
+                              height={128}
+                              onClick={() => setIsModalOpen(true)}
+                            />
+                          )}
                           <Text>{str}</Text>
                         </Container>
                       );
@@ -202,41 +234,43 @@ export default function FourthPage({
                   })}
               </Text>
             </Wrapper>
-            <Wrapper>
-              <Item>
-                <RadioButton
-                  type="radio"
-                  name="radio"
-                  value="1"
-                  id="fourth_page_1"
-                  onChange={(event) => handleOptionChange(event)}
-                />
-                <RadioButtonLabel />
-                <label htmlFor="fourth_page_1">Opção 1</label>
-              </Item>
-              <Item>
-                <RadioButton
-                  type="radio"
-                  name="radio"
-                  value="2"
-                  id="fourth_page_2"
-                  onChange={(event) => handleOptionChange(event)}
-                />
-                <RadioButtonLabel />
-                <label htmlFor="fourth_page_2">Opção 2</label>
-              </Item>
-              <Item>
-                <RadioButton
-                  type="radio"
-                  name="radio"
-                  value="3"
-                  id="fourth_page_3"
-                  onChange={(event) => handleOptionChange(event)}
-                />
-                <RadioButtonLabel />
-                <label htmlFor="fourth_page_3">Opção 3</label>
-              </Item>
-            </Wrapper>
+            {typingDone && (
+              <OptionsWrapper>
+                <Item>
+                  <RadioButton
+                    type="radio"
+                    name="radio"
+                    value="1"
+                    id="fourth_page_1"
+                    onChange={(event) => handleOptionChange(event)}
+                  />
+                  <RadioButtonLabel />
+                  <label htmlFor="fourth_page_1">Opção 1</label>
+                </Item>
+                <Item>
+                  <RadioButton
+                    type="radio"
+                    name="radio"
+                    value="2"
+                    id="fourth_page_2"
+                    onChange={(event) => handleOptionChange(event)}
+                  />
+                  <RadioButtonLabel />
+                  <label htmlFor="fourth_page_2">Opção 2</label>
+                </Item>
+                <Item>
+                  <RadioButton
+                    type="radio"
+                    name="radio"
+                    value="3"
+                    id="fourth_page_3"
+                    onChange={(event) => handleOptionChange(event)}
+                  />
+                  <RadioButtonLabel />
+                  <label htmlFor="fourth_page_3">Opção 3</label>
+                </Item>
+              </OptionsWrapper>
+            )}
           </Content>
         )}
         {isModalOpen && (

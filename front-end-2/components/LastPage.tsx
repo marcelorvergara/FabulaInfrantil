@@ -1,9 +1,10 @@
 import { IResult } from "@/interfaces/IResult";
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import styled, { css } from "styled-components";
+import styled, { css, keyframes } from "styled-components";
 import Modal from "./Modal";
 import LoadingSpinner from "./SpinnerAnimation";
+import { useTypewriter } from "@/helpers/useTypewriter";
 
 const CenterFP = styled.section`
   width: 95%;
@@ -23,7 +24,6 @@ const FPDiv = styled.div<TSStyledClickd>`
   font-size: 1.2rem;
   position: absolute;
   z-index: -5;
-  /* the cover only opens once */
   ${(props) => {
     if (props.hasClicked) {
       gtag("event", "last_page", { go_to: "all_to_back_cover" });
@@ -39,7 +39,6 @@ const FPDiv = styled.div<TSStyledClickd>`
 
 const Content = styled.div<TSStyledClickd>`
   overflow-y: auto;
-  /* hide content when page has changed */
   ${(props) => {
     if (props.hasClicked) {
       return css`
@@ -73,8 +72,33 @@ const ImageContainer = styled(Image)`
   padding: 4px;
 `;
 
+const shimmer = keyframes`
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+`;
+
+const ImageSkeleton = styled.div`
+  float: right;
+  margin: 4px;
+  width: 128px;
+  height: 128px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #d0d0d0 25%, #e8e8e8 50%, #d0d0d0 75%);
+  background-size: 200% 100%;
+  animation: ${shimmer} 1.5s infinite;
+`;
+
 const Text = styled.div`
   margin: 0;
+`;
+
+const fadeIn = keyframes`
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+`;
+
+const EndWrapper = styled(Wrapper)`
+  animation: ${fadeIn} 0.4s ease forwards;
 `;
 
 const ButtonDiv = styled.div<TSStyledClickd>`
@@ -99,7 +123,6 @@ const ButtonDiv = styled.div<TSStyledClickd>`
 `;
 
 const Button = styled.button<TSStyledClickd>`
-  /* hide content when page has changed */
   ${(props) => {
     if (props.hasClicked) {
       return css`
@@ -128,6 +151,7 @@ type TSStyledClickd = {
 export interface ILastPageProps {
   result?: IResult;
   isLoading: boolean;
+  isImageLoading: boolean;
   resetPage: boolean;
   image: string;
 }
@@ -135,11 +159,13 @@ export interface ILastPageProps {
 export default function LastPage({
   result,
   isLoading,
+  isImageLoading,
   resetPage,
   image,
 }: ILastPageProps) {
   const [hasClicked, setHasClicked] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [displayedText, typingDone] = useTypewriter(result?.result?.message?.content ?? "");
 
   useEffect(() => {
     if (resetPage) {
@@ -157,17 +183,21 @@ export default function LastPage({
             <Wrapper>
               <Text>
                 {result?.result &&
-                  result?.result.message.content.split("\n").map((str, k) => {
+                  displayedText.split("\n").map((str: string, k: number) => {
                     if (k === 0) {
                       return (
                         <Container key={k}>
-                          <ImageContainer
-                            src={image}
-                            alt="Aqui deveria ter uma imagem"
-                            width={128}
-                            height={128}
-                            onClick={() => setIsModalOpen(true)}
-                          />
+                          {isImageLoading ? (
+                            <ImageSkeleton />
+                          ) : (
+                            <ImageContainer
+                              src={image}
+                              alt="Aqui deveria ter uma imagem"
+                              width={128}
+                              height={128}
+                              onClick={() => setIsModalOpen(true)}
+                            />
+                          )}
                           <Text onClick={() => setHasClicked(true)}>{str}</Text>
                         </Container>
                       );
@@ -180,14 +210,18 @@ export default function LastPage({
                     }
                   })}
               </Text>
-              <ButtonDiv hasClicked={hasClicked}>
-                <Button
-                  hasClicked={hasClicked}
-                  onClick={() => setHasClicked(true)}>
-                  Fim
-                </Button>
-              </ButtonDiv>
             </Wrapper>
+            {typingDone && (
+              <EndWrapper>
+                <ButtonDiv hasClicked={hasClicked}>
+                  <Button
+                    hasClicked={hasClicked}
+                    onClick={() => setHasClicked(true)}>
+                    Fim
+                  </Button>
+                </ButtonDiv>
+              </EndWrapper>
+            )}
           </Content>
         )}
         {isModalOpen && (

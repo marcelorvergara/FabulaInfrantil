@@ -82,6 +82,9 @@ export default function Home() {
   const [firstImage, setFirstImage] = useState(placeHolderImg);
   const [secondImage, setSecondImage] = useState(placeHolderImg);
   const [thirdImage, setThirdImage] = useState(placeHolderImg);
+  const [isImage1Loading, setIsImage1Loading] = useState(false);
+  const [isImage2Loading, setIsImage2Loading] = useState(false);
+  const [isImage3Loading, setIsImage3Loading] = useState(false);
   const [firstPart, setFirstPart] = useState<IMessage[]>([
     {
       role: "",
@@ -116,10 +119,15 @@ export default function Home() {
       // if there is an error in the generation of the story
       if (resultJson.result.message.content.indexOf("\n") === -1) {
         setResetPage(true);
+        setIsLoading(false);
         return;
       }
-      // generate first image
-      const image1 = await generateImage(
+
+      // Unblock UI immediately — image loads in the background
+      setIsLoading(false);
+
+      setIsImage1Loading(true);
+      generateImage(
         "gere uma figura  para uma criança com idade entre " +
           age.replace("_", " e ") +
           " anos que resume o seguinte texto:\n" +
@@ -128,12 +136,12 @@ export default function Home() {
           getFirst60Percent(
             resultJson.result.message.content.replace("\\n", " ")
           )
-      );
-      const image1Json = await image1.json();
-      setFirstImage(image1Json.result);
+      )
+        .then((r) => r.json())
+        .then((j) => { setFirstImage(j.result); setIsImage1Loading(false); })
+        .catch((err) => { console.error("Image 1 failed:", err); setIsImage1Loading(false); });
     } catch (error) {
       console.error(error);
-    } finally {
       setIsLoading(false);
     }
   };
@@ -168,8 +176,12 @@ export default function Home() {
         const storyCp = story;
         storyCp?.push(choosedOption.content, selectedOption.content);
         setStory(storyCp);
-        // generate second image
-        const image2 = await generateImage(
+
+        // Unblock UI immediately — image loads in the background
+        setIsLoading(false);
+
+        setIsImage2Loading(true);
+        generateImage(
           "gere uma imgaem sem texto para uma criança com idade entre " +
             age.replace("_", " e ") +
             " anos sobre o seguinte texto: " +
@@ -178,13 +190,13 @@ export default function Home() {
             getFirst60Percent(
               resultJson.result.message.content.replace("\\n", " ")
             )
-        );
-        const image2Json = await image2.json();
-        setSecondImage(image2Json.result);
+        )
+          .then((r) => r.json())
+          .then((j) => { setSecondImage(j.result); setIsImage2Loading(false); })
+          .catch((err) => { console.error("Image 2 failed:", err); setIsImage2Loading(false); });
       }
     } catch (error) {
       console.error(error);
-    } finally {
       setIsLoading(false);
     }
   };
@@ -218,8 +230,12 @@ export default function Home() {
           resultJson.result.message.content
         );
         setStory(storyCp);
-        // generate third image
-        const image3 = await generateImage(
+
+        // Unblock UI immediately — image loads in the background
+        setIsLoading(false);
+
+        setIsImage3Loading(true);
+        generateImage(
           "gere uma imgaem sem texto para uma criança com idade entre " +
             age.replace("_", " e ") +
             " anos sobre o seguinte texto: " +
@@ -228,13 +244,13 @@ export default function Home() {
             getFirst60Percent(
               resultJson.result.message.content.replace("\\n", " ")
             )
-        );
-        const image3Json = await image3.json();
-        setThirdImage(image3Json.result);
+        )
+          .then((r) => r.json())
+          .then((j) => { setThirdImage(j.result); setIsImage3Loading(false); })
+          .catch((err) => { console.error("Image 3 failed:", err); setIsImage3Loading(false); });
       }
     } catch (error) {
       console.error(error);
-    } finally {
       setIsLoading(false);
     }
   };
@@ -245,6 +261,9 @@ export default function Home() {
     setFirstImage(placeHolderImg);
     setSecondImage(placeHolderImg);
     setThirdImage(placeHolderImg);
+    setIsImage1Loading(false);
+    setIsImage2Loading(false);
+    setIsImage3Loading(false);
   };
 
   useEffect(() => {
@@ -289,17 +308,20 @@ export default function Home() {
             resetPage={resetPage}
             result={result}
             isLoading={isLoading}
+            isImageLoading={isImage1Loading}
             image={firstImage}></ThirdPage>
           <FourthPage
             onSendOption={handleOption2}
             resetPage={resetPage}
             result={result}
             isLoading={isLoading}
+            isImageLoading={isImage2Loading}
             image={secondImage}></FourthPage>
           <LastPage
             resetPage={resetPage}
             result={result}
             isLoading={isLoading}
+            isImageLoading={isImage3Loading}
             image={thirdImage}></LastPage>
           <BackCover onSendReset={handleReset} shareStory={shareStory} />
         </Wrapper>

@@ -1,37 +1,24 @@
-import OpenAI from "openai";
-import type { ImagesResponse } from "openai/resources";
+import { fal } from "@fal-ai/client";
 import dotenv from "dotenv";
-import sleep from "../utils/generalFunctions";
 
 dotenv.config();
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+fal.config({ credentials: process.env.FAL_KEY });
 
-async function generate(input: { prompt: string }): Promise<ImagesResponse> {
-  let delay = 500;
-  const maxRetries = 5;
+async function generate(input: { prompt: string }): Promise<string> {
+  const result = await fal.subscribe("fal-ai/flux/schnell", {
+    input: {
+      prompt: input.prompt,
+      num_images: 1,
+      image_size: "square_hd",
+      enable_safety_checker: true,
+    },
+  });
 
-  for (let retries = 0; retries < maxRetries; retries++) {
-    try {
-      return await openai.images.generate({
-        model: "gpt-image-1",
-        prompt: input.prompt,
-        n: 1,
-        size: "1024x1024",
-        output_format: "webp",
-      });
-    } catch (error: any) {
-      console.error(
-        `Image: attempt ${retries + 1} failed. Retrying in ${delay} ms...\n ${error}`
-      );
-      await sleep(delay);
-      delay *= 2;
-    }
-  }
-
-  throw new Error("Failed to generate image after multiple retries");
+  const images = (result.data as any).images as Array<{ url: string }>;
+  const url = images?.[0]?.url;
+  if (!url) throw new Error("No image URL returned from fal.ai");
+  return url;
 }
 
-export default {
-  generate,
-};
+export default { generate };
