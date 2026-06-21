@@ -6,7 +6,7 @@ import Head from "next/head";
 const schema = {
   "@context": "https://schema.org",
   "@type": "WebSite",
-  name: "Fabula Infantil",
+  name: "Fábula Infantil",
   url: "https://www.fabulainfantil.com",
 };
 
@@ -14,11 +14,12 @@ export default function App({ Component, pageProps }: AppProps) {
   return (
     <>
       <Head>
-        <title>Fabula Infantil</title>
+        <title>Fábula Infantil</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="canonical" href="https://fabulainfantil.com" />
         <meta
           name="description"
-          content="Fabula Infantil é um site para crianças criarem e personalizarem suas próprias histórias com aventuras únicas e estimular a imaginação com ajuda de inteligência artificial."
+          content="Fábula Infantil é um site para crianças criarem e personalizarem suas próprias histórias com aventuras únicas e estimular a imaginação com ajuda de inteligência artificial."
         />
         <script
           type="application/ld+json"

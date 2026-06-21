@@ -36,8 +36,22 @@ const FPDiv = styled.div<TSStyledClickd>`
   }}
 `;
 
+const ProgressBadge = styled.div`
+  font-size: 0.65rem;
+  color: #aaa;
+  text-align: center;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-family: "Courier New", Courier, monospace;
+  padding: 6px 0 2px 0;
+`;
+
 const Content = styled.div<TSStyledClickd>`
   overflow-y: auto;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
   ${(props) => {
     if (props.hasClicked) {
       return css`
@@ -178,6 +192,7 @@ export default function LastPage({
           <LoadingSpinner></LoadingSpinner>
         ) : (
           <Content hasClicked={hasClicked}>
+            <ProgressBadge>Parte 3 de 3</ProgressBadge>
             <Wrapper>
               <Text>
                 {result?.result &&
@@ -190,7 +205,7 @@ export default function LastPage({
                           ) : (
                             <ImageContainer
                               src={image}
-                              alt="Aqui deveria ter uma imagem"
+                              alt="Ilustração da história"
                               width={128}
                               height={128}
                               onClick={() => setIsModalOpen(true)}
@@ -215,7 +230,7 @@ export default function LastPage({
                   <Button
                     hasClicked={hasClicked}
                     onClick={() => setHasClicked(true)}>
-                    Fim
+                    Ver minha história ✨
                   </Button>
                 </ButtonDiv>
               </EndWrapper>

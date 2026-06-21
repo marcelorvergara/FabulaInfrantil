@@ -69,8 +69,46 @@ const Wrapper = styled.section`
   width: 340px;
 `;
 
-const placeHolderImg =
-  "https://storage.googleapis.com/proudcity/mebanenc/uploads/2021/03/placeholder-image.png";
+const ErrorCard = styled.div`
+  position: absolute;
+  z-index: 10;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #fff5f5;
+  border: 1.5px solid #e57373;
+  border-radius: 12px;
+  padding: 24px 28px;
+  text-align: center;
+  width: 270px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  font-family: "Courier New", Courier, monospace;
+`;
+
+const ErrorText = styled.p`
+  color: #b71c1c;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  margin-bottom: 18px;
+`;
+
+const RetryButton = styled.button`
+  cursor: pointer;
+  background: #ffd700;
+  border: none;
+  border-radius: 50px;
+  color: #1a1a3e;
+  padding: 10px 28px;
+  font-size: 0.88rem;
+  font-weight: bold;
+  font-family: "Courier New", Courier, monospace;
+  box-shadow: 0 3px 10px rgba(255, 215, 0, 0.4);
+  transition: transform 0.1s;
+  &:hover { transform: translateY(-2px); }
+  &:active { transform: translateY(0); }
+`;
+
+const placeHolderImg = "/placeholder.png";
 
 export default function Home() {
   const [keyword, setKeyword] = useState("");
@@ -91,36 +129,32 @@ export default function Home() {
       content: "",
     },
   ]);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [shareStatus, setShareStatus] = useState<"idle" | "copied" | "error">("idle");
 
   const handleAge = (ageStr: string) => {
     setAge(ageStr);
   };
 
   const handleKw = async (kw: string) => {
-    if (kw === "") {
-      setKeyword("Uma história legal");
-    } else {
-      setKeyword(kw);
-    }
+    const resolvedKw = kw === "" ? "Uma história legal" : kw;
+    setKeyword(resolvedKw);
+    setErrorMessage(null);
 
     try {
       setIsLoading(true);
-      // send to the back-end api to generate story
-      const res = await getText(kw, age);
+      const res = await getText(resolvedKw, age);
       const resultJson = (await res.json()) as IResult;
 
-      // text to show in screen
       setResult(resultJson);
-      // text to share after story is complete
-      setStory([kw]);
-      // if there is an error in the generation of the story
+      setStory([resolvedKw]);
+
       if (resultJson.result.message.content.indexOf("\n") === -1) {
         setResetPage(true);
         setIsLoading(false);
         return;
       }
 
-      // Unblock UI immediately — image loads in the background
       setIsLoading(false);
 
       setIsImage1Loading(true);
@@ -128,7 +162,7 @@ export default function Home() {
         "gere uma figura  para uma criança com idade entre " +
           age.replace("_", " e ") +
           " anos que resume o seguinte texto:\n" +
-          keyword +
+          resolvedKw +
           ".\n" +
           getFirst60Percent(
             resultJson.result.message.content.replace("\\n", " ")
@@ -136,14 +170,16 @@ export default function Home() {
       )
         .then((r) => r.json())
         .then((j) => { setFirstImage(j.result); setIsImage1Loading(false); })
-        .catch((err) => { console.error("Image 1 failed:", err); setIsImage1Loading(false); });
+        .catch((err) => { console.error("Image 1 failed:", err); setFirstImage(placeHolderImg); setIsImage1Loading(false); });
     } catch (error) {
       console.error(error);
       setIsLoading(false);
+      setErrorMessage("Ops! Não foi possível gerar a história. Tente novamente.");
     }
   };
 
   const handleOption = async (text: string) => {
+    setErrorMessage(null);
     try {
       setIsLoading(true);
       if (result?.result.message) {
@@ -189,15 +225,17 @@ export default function Home() {
         )
           .then((r) => r.json())
           .then((j) => { setSecondImage(j.result); setIsImage2Loading(false); })
-          .catch((err) => { console.error("Image 2 failed:", err); setIsImage2Loading(false); });
+          .catch((err) => { console.error("Image 2 failed:", err); setSecondImage(placeHolderImg); setIsImage2Loading(false); });
       }
     } catch (error) {
       console.error(error);
       setIsLoading(false);
+      setErrorMessage("Ops! Não foi possível continuar a história. Tente novamente.");
     }
   };
 
   const handleOption2 = async (text: string) => {
+    setErrorMessage(null);
     try {
       setIsLoading(true);
       if (result?.result.message) {
@@ -242,11 +280,12 @@ export default function Home() {
         )
           .then((r) => r.json())
           .then((j) => { setThirdImage(j.result); setIsImage3Loading(false); })
-          .catch((err) => { console.error("Image 3 failed:", err); setIsImage3Loading(false); });
+          .catch((err) => { console.error("Image 3 failed:", err); setThirdImage(placeHolderImg); setIsImage3Loading(false); });
       }
     } catch (error) {
       console.error(error);
       setIsLoading(false);
+      setErrorMessage("Ops! Não foi possível gerar o final da história. Tente novamente.");
     }
   };
 
@@ -259,6 +298,8 @@ export default function Home() {
     setIsImage1Loading(false);
     setIsImage2Loading(false);
     setIsImage3Loading(false);
+    setErrorMessage(null);
+    setShareStatus("idle");
   };
 
   useEffect(() => {
@@ -277,12 +318,18 @@ export default function Home() {
 
     if (storyId !== null) {
       const storyIdJson = await storyId.json();
+      const shareUrl = `https://story.fabulainfantil.com/shareStory/${storyIdJson}`;
       // time necessary to store images in storage
       setTimeout(function () {
-        window.open(
-          `https://story.fabulainfantil.com/shareStory/${storyIdJson}`
-        );
+        window.open(shareUrl);
       }, 1500);
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        setShareStatus("copied");
+      } catch {
+        setShareStatus("error");
+      }
+      setTimeout(() => setShareStatus("idle"), 3000);
     }
   }
 
@@ -291,6 +338,12 @@ export default function Home() {
     <FirstDiv>
       <MotherDiv>
         <Wrapper>
+          {errorMessage && (
+            <ErrorCard>
+              <ErrorText>{errorMessage}</ErrorText>
+              <RetryButton onClick={() => handleReset(true)}>Tentar novamente</RetryButton>
+            </ErrorCard>
+          )}
           <Cover />
           <KeywordPage
             onSendKw={handleKw}
@@ -318,7 +371,7 @@ export default function Home() {
             isLoading={isLoading}
             isImageLoading={isImage3Loading}
             image={thirdImage}></LastPage>
-          <BackCover onSendReset={handleReset} shareStory={shareStory} />
+          <BackCover onSendReset={handleReset} shareStory={shareStory} shareStatus={shareStatus} />
         </Wrapper>
       </MotherDiv>
     </FirstDiv>

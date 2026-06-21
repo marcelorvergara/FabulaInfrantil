@@ -166,6 +166,16 @@ const OptionsWrapper = styled(Wrapper)`
   animation: ${fadeIn} 0.4s ease forwards;
 `;
 
+const ProgressBadge = styled.div`
+  font-size: 0.65rem;
+  color: #aaa;
+  text-align: center;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-family: "Courier New", Courier, monospace;
+  padding: 6px 0 2px 0;
+`;
+
 type TSStyledClickd = {
   hasClicked: boolean;
 };
@@ -238,6 +248,7 @@ export default function ThirdPage({
           <LoadingSpinner></LoadingSpinner>
         ) : (
           <Content hasClicked={hasClicked}>
+            <ProgressBadge>Parte 1 de 3</ProgressBadge>
             <Wrapper>
               <Text>
                 {result?.result &&

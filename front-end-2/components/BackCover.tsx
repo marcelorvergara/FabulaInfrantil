@@ -124,11 +124,13 @@ const PixKey = styled.p`
 export interface IBackCoverProps {
   onSendReset: (cond: boolean) => void;
   shareStory: () => void;
+  shareStatus: "idle" | "copied" | "error";
 }
 
 export default function BackCover({
   onSendReset,
   shareStory,
+  shareStatus,
 }: IBackCoverProps) {
   return (
     <CenterBook>
@@ -137,7 +139,9 @@ export default function BackCover({
 
         <ButtonRow>
           <Button onClick={() => onSendReset(true)}>Reiniciar</Button>
-          <Button onClick={shareStory}>Compartilhar</Button>
+          <Button onClick={shareStory} disabled={shareStatus === "copied"}>
+            {shareStatus === "copied" ? "Link copiado! ✨" : "Compartilhar"}
+          </Button>
         </ButtonRow>
 
         <Divider />
