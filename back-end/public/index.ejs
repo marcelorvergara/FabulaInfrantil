@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title><%= story.story[0] %></title>
+    <meta charset="UTF-8" />
+    <script
+      src="https://kit.fontawesome.com/d0183c7887.js"
+      crossorigin="anonymous"></script>
+    <link rel="preload" href="<%= story.firstImage %>" as="image" />
+    <link rel="preload" href="<%= story.secondImage %>" as="image" />
+    <link rel="preload" href="<%= story.thirdImage %>" as="image" />
+    <link
+      href="https://fonts.googleapis.com/css?family=Roboto:300,400,700"
+      rel="stylesheet" />
+    <style>
+      * {
+        margin: 0px;
+        padding: 0;
+        font-family: "Roboto", sans-serif;
+        box-sizing: border-box;
+      }
+
+      body {
+        background-color: #f8f8f8;
+        font-weight: 400;
+        line-height: 1.6;
+        color: #333;
+      }
+
+      h1 {
+        font-size: 36px;
+        margin-bottom: 32px;
+        margin-top: 24px;
+        font-weight: 700;
+      }
+
+      footer {
+        font-size: 24px;
+        padding: 12px;
+        background-color: #e69b00;
+        color: #fff;
+      }
+
+      .header {
+        background-color: #e69b00;
+        padding: 16px 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+
+      .header-logo {
+        color: #fff;
+        text-decoration: none;
+        font-size: 32px;
+        font-weight: bold;
+        margin-top: 8px;
+      }
+
+      .header-logo:hover {
+        color: #3498db;
+      }
+
+      .header-title {
+        font-size: 48px;
+        color: #fff;
+        margin-bottom: 8px;
+      }
+
+      .container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 0 16px;
+      }
+
+      .paragraph {
+        font-size: 18px;
+        margin-bottom: 32px;
+        width: 100%;
+        text-align: justify;
+        position: relative;
+        padding: 16px;
+        background-color: #ffffff;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        border-radius: 6px;
+      }
+
+      .paragraph img {
+        float: right;
+        margin: 12px;
+        width: 256px;
+        max-height: 256px;
+        height: auto;
+        display: block;
+        margin-bottom: 16px;
+        border-radius: 6px;
+        object-fit: cover;
+      }
+
+      .paragraph-left {
+        font-size: 18px;
+        margin-bottom: 32px;
+        width: 100%;
+        text-align: justify;
+        position: relative;
+        padding: 16px;
+        background-color: #ffffff;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        border-radius: 6px;
+      }
+
+      .paragraph-left img {
+        float: left;
+        margin: 12px;
+        width: 256px;
+        max-height: 256px;
+        height: auto;
+        display: block;
+        margin-bottom: 16px;
+        border-radius: 6px;
+        object-fit: cover;
+      }
+
+      .paragraph p {
+        margin-bottom: 8px;
+      }
+
+      .social-share {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        margin: 4px;
+        font-size: 36px;
+        margin-bottom: 1rem;
+      }
+
+      .social-share p {
+        flex-basis: 100%;
+        margin-bottom: 1em;
+        width: max-content;
+        font-weight: 600;
+      }
+
+      .social-share a {
+        margin-right: 32px;
+        color: #fff;
+        transition: color 0.3s ease;
+      }
+
+      .social-share a:hover {
+        color: #3498db;
+      }
+
+      footer a {
+        font-size: larger;
+        color: #fff;
+        text-decoration: none;
+        transition: color 0.3s ease;
+      }
+
+      footer a:hover {
+        color: #3498db;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="header">
+      <h1 class="header-title"><%= story.story[0] %></h1>
+      <a href="https://fabulainfantil.com" class="header-logo"
+        >Fabula Infantil</a
+      >
+    </header>
+    <div class="container">
+      <div class="paragraph">
+        <img
+          class="first-image"
+          src="<%= story.firstImage %>"
+          alt="primeira imagem" />
+        <span><%= story.story[1] %></span>
+        <p>Opção escolhida <%= story.story[2] %></p>
+      </div>
+      <div class="paragraph-left">
+        <img
+          class="second-image"
+          src="<%= story.secondImage %>"
+          alt="segunda imagem" />
+        <span><%= story.story[3] %></span>
+        <p>Opção escolhida <%= story.story[4] %></p>
+      </div>
+      <div class="paragraph">
+        <img
+          class="third-image"
+          src="<%= story.thirdImage %>"
+          alt="terceira imagem" />
+        <span><%= story.story[5] %></span>
+      </div>
+    </div>
+    <footer>
+      <div class="social-share">
+        <p style="width: max-content">Compartilhe sua história:</p>
+        <a
+          href="https://www.facebook.com/sharer/sharer.php?u=https://story.fabulainfantil.com/shareStory/<%= story.storyId %>"
+          target="_blank">
+          <i class="fa-brands fa-facebook fa-lg"></i>
+        </a>
+        <a
+          href="https://twitter.com/intent/tweet?text=<%= story.story[0] %>%20https://story.fabulainfantil.com/shareStory/<%= story.storyId %>"
+          target="_blank">
+          <i class="fa-brands fa-twitter fa-lg"></i>
+        </a>
+        <a
+          href="https://www.linkedin.com/shareArticle?mini=true&url=https://story.fabulainfantil.com/shareStory/<%= story.storyId %>&title=<%= story.story[0] %>"
+          target="_blank">
+          <i class="fa-brands fa-linkedin-in fa-lg"></i>
+        </a>
+        <a
+          href="whatsapp://send?text=<%= story.story[0] %>%20https://story.fabulainfantil.com/shareStory/<%= story.storyId %>"
+          data-action="share/whatsapp/share">
+          <i class="fa-brands fa-whatsapp fa-lg"></i>
+        </a>
+        <a href="#" id="copy-link">
+          <i class="fa fa-link fa-lg"></i>
+        </a>
+      </div>
+      <div class="container">
+        <a href="https://fabulainfantil.com">Fabula Infantil</a> &copy;
+        <script>
+          document.write(new Date().getFullYear());
+        </script>
+      </div>
+    </footer>
+    <script>
+      const copyLink = document.querySelector("#copy-link");
+      copyLink.addEventListener("click", function (event) {
+        event.preventDefault();
+        const link = document.createElement("input");
+        link.value =
+          "https://story.fabulainfantil.com/shareStory/<%= story.storyId %>";
+        document.body.appendChild(link);
+        link.select();
+        document.execCommand("copy");
+        document.body.removeChild(link);
+        alert("Link copiado para a área de transferência");
+      });
+    </script>
+  </body>
+</html>
