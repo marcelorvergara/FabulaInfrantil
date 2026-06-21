@@ -26,7 +26,6 @@ const FPDiv = styled.div<TSStyledClickd>`
   z-index: -5;
   ${(props) => {
     if (props.hasClicked) {
-      gtag("event", "last_page", { go_to: "all_to_back_cover" });
       return css`
         z-index: 1;
         transform: rotateX(10deg) rotateY(-180deg);
@@ -104,7 +103,6 @@ const EndWrapper = styled(Wrapper)`
 const ButtonDiv = styled.div<TSStyledClickd>`
   ${(props) => {
     if (props.hasClicked) {
-      gtag("event", "last_page", { go_to: "button_back_cover" });
       return css`
         z-index: 1;
         transform: rotateX(10deg) rotateY(-180deg);

@@ -18,23 +18,27 @@ const CoverBack = styled.div`
   font-size: 2.5rem;
   position: absolute;
   z-index: -6;
-`;
-
-const Content = styled.div`
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  margin-top: 150px;
-  font-size: 16px;
+  padding: 24px 20px;
+  box-sizing: border-box;
 `;
 
-const ButtonDiv = styled.div`
+const BookTitle = styled.div`
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.45);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+`;
+
+const ButtonRow = styled.div`
   width: 100%;
-  height: 20%;
   display: flex;
-  flex-flow: wrap;
+  gap: 10px;
   justify-content: center;
-  align-items: center;
+  margin-bottom: 20px;
 `;
 
 const Button = styled.button`
@@ -43,28 +47,80 @@ const Button = styled.button`
   border-radius: 3px;
   border: 2px solid palevioletred;
   color: palevioletred;
-  margin: 0 1em;
   padding: 0.25em 1em;
-  font-size: 1.2rem;
+  font-size: 1rem;
+  flex: 1;
+  font-family: "Courier New", Courier, monospace;
+`;
+
+const Divider = styled.hr`
   width: 80%;
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  margin: 4px 0 16px 0;
 `;
 
-const QrCode = styled.div`
-  display: flex;
-  flex-flow: wrap;
-  justify-content: center;
-  align-items: center;
+const TokenSection = styled.div`
   width: 100%;
-  margin-top: 24px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 12px;
+  padding: 16px 18px;
+  box-sizing: border-box;
+  margin-bottom: 16px;
 `;
 
-const Apio = styled.div`
-  color: palevioletred;
-  font-size: 14px;
-  padding: 10px;
-  margin: 12px;
-  text-align: center;
+const TokenHeading = styled.p`
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 10px;
 `;
+
+const CostRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.75);
+  margin-bottom: 6px;
+`;
+
+const CostDivider = styled.hr`
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  margin: 8px 0;
+`;
+
+const CostTotal = styled.div`
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  font-weight: bold;
+  color: #ffd700;
+`;
+
+const RechargeHeading = styled.p`
+  font-size: 13px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.5;
+  margin-bottom: 14px;
+  padding: 0 4px;
+`;
+
+const QrWrapper = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+`;
+
+const PixKey = styled.p`
+  font-size: 12px;
+  color: palevioletred;
+  letter-spacing: 0.06em;
+`;
+
 export interface IBackCoverProps {
   onSendReset: (cond: boolean) => void;
   shareStory: () => void;
@@ -77,25 +133,47 @@ export default function BackCover({
   return (
     <CenterBook>
       <CoverBack>
-        <Content>Fabula Infantil</Content>
-        <ButtonDiv>
+        <BookTitle>Fábula Infantil</BookTitle>
+
+        <ButtonRow>
           <Button onClick={() => onSendReset(true)}>Reiniciar</Button>
           <Button onClick={shareStory}>Compartilhar</Button>
-        </ButtonDiv>
-        <QrCode>
-          <Apio>
-            Apoie nosso aplicativo e nos ajude a continuar contando histórias
-            incríveis!
-          </Apio>
+        </ButtonRow>
+
+        <Divider />
+
+        <TokenSection>
+          <TokenHeading>custo desta história</TokenHeading>
+          <CostRow>
+            <span>Texto (IA · ~4k tokens)</span>
+            <span>≈ R$0,05</span>
+          </CostRow>
+          <CostRow>
+            <span>3 ilustrações (fal.ai)</span>
+            <span>≈ R$0,30</span>
+          </CostRow>
+          <CostDivider />
+          <CostTotal>
+            <span>Total consumido</span>
+            <span>≈ R$0,35</span>
+          </CostTotal>
+        </TokenSection>
+
+        <RechargeHeading>
+          Tokens ficam mais caros todo mês. Se a história valeu, recarregue o
+          balde ✨
+        </RechargeHeading>
+
+        <QrWrapper>
           <Image
             src="/qrcode.png"
-            alt="qrcode"
-            width={257}
-            height={256}
+            alt="QR Code PIX para recarregar tokens"
+            width={200}
+            height={200}
             priority={true}
           />
-          <Apio>Chave pix: 21 972464530</Apio>
-        </QrCode>
+          <PixKey>Chave pix: 21 972464530</PixKey>
+        </QrWrapper>
       </CoverBack>
     </CenterBook>
   );

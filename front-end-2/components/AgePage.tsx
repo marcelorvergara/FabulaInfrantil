@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import styled, { css } from "styled-components";
 
+const AGE_OPTIONS = [
+  { value: "0_3", label: "0 a 3 anos", emoji: "🍼" },
+  { value: "4_7", label: "4 a 7 anos", emoji: "🌟" },
+  { value: "8_11", label: "8 a 11 anos", emoji: "🚀" },
+  { value: "12_14", label: "12 a 14 anos", emoji: "🔮" },
+];
+
 const CenterFP = styled.section`
   width: 95%;
   margin: 6px auto;
@@ -44,78 +51,65 @@ const Content = styled.div<TSStyledClickd>`
     }
     return "";
   }}
-  display: block;
-  margin: 40px 0 12px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   height: 840px;
-  text-align: left;
-  padding: 12px;
-`;
-
-const Wrapper = styled.div`
-  height: auto;
-  width: 100%;
-  padding: 0px 16px 24px 16px;
+  padding: 0 24px;
   box-sizing: border-box;
 `;
 
-const Item = styled.div`
+const Decoration = styled.div`
+  font-size: 3rem;
+  margin-bottom: 16px;
+`;
+
+const Prompt = styled.h2`
+  font-family: "Courier New", Courier, monospace;
+  font-size: 0.95rem;
+  color: #3c3c5c;
+  text-align: center;
+  margin-bottom: 8px;
+  line-height: 1.6;
+  font-weight: bold;
+`;
+
+const Hint = styled.p`
+  font-size: 0.72rem;
+  color: #888;
+  text-align: center;
+  margin-bottom: 28px;
+  font-style: italic;
+  font-family: "Courier New", Courier, monospace;
+`;
+
+const AgeCard = styled.button<{ selected: boolean }>`
+  width: 100%;
   display: flex;
   align-items: center;
-  height: 48px;
-  position: relative;
-  border: 1px solid #ccc;
-  box-sizing: border-box;
-  border-radius: 2px;
-  margin-bottom: 10px;
-  margin-top: 16px;
-`;
-
-const RadioButtonLabel = styled.label`
-  position: absolute;
-  top: 25%;
-  left: 4px;
-  width: 20px;
-  height: 20px;
-  border-radius: 20%;
-  background: white;
-  border: 1px solid #ccc;
-`;
-const RadioButton = styled.input`
-  opacity: 0;
-  z-index: 1;
+  gap: 14px;
+  padding: 13px 18px;
+  margin-bottom: 12px;
+  background: ${(props) => (props.selected ? "#ffd700" : "#fffff5")};
+  border: 2px solid ${(props) => (props.selected ? "#ffd700" : "#c7bfff")};
+  border-radius: 10px;
   cursor: pointer;
-  width: 25px;
-  height: 25px;
-  margin-right: 10px;
-  &:hover ~ ${RadioButtonLabel} {
-    background: palevioletred;
-    &::after {
-      display: block;
-      color: white;
-      width: 12px;
-      height: 12px;
-      margin: 4px;
-    }
-  }
-  &:checked + ${Item} {
-    background: palevioletred;
-    border: 2px solid palevioletred;
-  }
-  &:checked + ${RadioButtonLabel} {
-    background: palevioletred;
-    border: 1px solid palevioletred;
-    &::after {
-      display: block;
-      color: white;
-      width: 12px;
-      height: 12px;
-      margin: 4px;
-    }
+  font-family: "Courier New", Courier, monospace;
+  font-size: 0.88rem;
+  color: ${(props) => (props.selected ? "#1a1a3e" : "#3c3c5c")};
+  font-weight: ${(props) => (props.selected ? "bold" : "normal")};
+  box-sizing: border-box;
+  transition: border-color 0.15s, background 0.15s, transform 0.1s;
+  &:hover {
+    border-color: #7c6fcf;
+    transform: translateX(3px);
   }
 `;
 
-const AgeQuestion = styled.div`
-  padding: 12px;
+const CardEmoji = styled.span`
+  font-size: 1.4rem;
+  flex-shrink: 0;
 `;
 
 type TSStyledClickd = {
@@ -129,23 +123,18 @@ export interface IAgePageProps {
 
 export default function AgePage({ onSendAge, resetPage }: IAgePageProps) {
   const [hasClicked, setHasClicked] = useState(false);
+  const [selected, setSelected] = useState<string | null>(null);
 
-  function handleAge(age: string) {
-    onSendAge(age);
-  }
-  function handleAgeChange(event: React.ChangeEvent<HTMLInputElement>) {
-    handleAge(event.target.value);
+  function handleAgeSelect(value: string) {
+    setSelected(value);
+    onSendAge(value);
     setHasClicked(true);
   }
 
   useEffect(() => {
     if (resetPage) {
       setHasClicked(false);
-      // Clear all radio buttons
-      const radioButtons = document.getElementsByName("radio");
-      radioButtons.forEach((button) => {
-        (button as HTMLInputElement).checked = false;
-      });
+      setSelected(null);
     }
   }, [resetPage]);
 
@@ -153,53 +142,19 @@ export default function AgePage({ onSendAge, resetPage }: IAgePageProps) {
     <CenterFP>
       <FPDiv hasClicked={hasClicked}>
         <Content hasClicked={hasClicked}>
-          <AgeQuestion>Qual a sua idade?</AgeQuestion>
-          <Wrapper>
-            <Item>
-              <RadioButton
-                type="radio"
-                name="radio"
-                value="0_3"
-                id="0_3"
-                onChange={(event) => handleAgeChange(event)}
-              />
-              <RadioButtonLabel />
-              <label htmlFor="0_3">Entre 0 e 3 anos</label>
-            </Item>
-            <Item>
-              <RadioButton
-                type="radio"
-                name="radio"
-                value="4_7"
-                id="4_7"
-                onChange={(event) => handleAgeChange(event)}
-              />
-              <RadioButtonLabel />
-              <label htmlFor="4_7">Entre 4 e 7 anos</label>
-            </Item>
-            <Item>
-              <RadioButton
-                type="radio"
-                name="radio"
-                value="8_11"
-                id="8_11"
-                onChange={(event) => handleAgeChange(event)}
-              />
-              <RadioButtonLabel />
-              <label htmlFor="8_11">Entre 8 e 11 anos</label>
-            </Item>
-            <Item>
-              <RadioButton
-                type="radio"
-                name="radio"
-                value="12_14"
-                id="12_14"
-                onChange={(event) => handleAgeChange(event)}
-              />
-              <RadioButtonLabel />
-              <label htmlFor="12_14">Entre 12 e 14 anos</label>
-            </Item>
-          </Wrapper>
+          <Decoration>📖</Decoration>
+          <Prompt>Qual é a sua idade?</Prompt>
+          <Hint>a história será adaptada para você</Hint>
+          {AGE_OPTIONS.map((opt) => (
+            <AgeCard
+              key={opt.value}
+              selected={selected === opt.value}
+              onClick={() => handleAgeSelect(opt.value)}
+            >
+              <CardEmoji>{opt.emoji}</CardEmoji>
+              {opt.label}
+            </AgeCard>
+          ))}
         </Content>
       </FPDiv>
     </CenterFP>

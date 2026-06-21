@@ -2,6 +2,8 @@ import { IResult } from "@/interfaces/IResult";
 import { useEffect, useState } from "react";
 import styled, { css } from "styled-components";
 
+const MAX_CHARS = 40;
+
 const CenterFP = styled.section`
   width: 95%;
   margin: 6px auto;
@@ -45,34 +47,94 @@ const Content = styled.div<TSStyledClickd>`
     }
     return "";
   }}
-  display: block;
-  margin: 40px 0 12px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   height: 840px;
-  text-align: right;
+  padding: 0 24px;
+  box-sizing: border-box;
+`;
+
+const Decoration = styled.div`
+  font-size: 3rem;
+  margin-bottom: 16px;
+`;
+
+const Prompt = styled.h2`
+  font-family: "Courier New", Courier, monospace;
+  font-size: 0.95rem;
+  color: #3c3c5c;
+  text-align: center;
+  margin-bottom: 8px;
+  line-height: 1.6;
+  font-weight: bold;
+`;
+
+const Hint = styled.p`
+  font-size: 0.72rem;
+  color: #888;
+  text-align: center;
+  margin-bottom: 28px;
+  font-style: italic;
+  font-family: "Courier New", Courier, monospace;
+`;
+
+const InputWrapper = styled.div`
+  width: 100%;
+  margin-bottom: 6px;
 `;
 
 const Input = styled.input`
-  width: 80%;
-  font-size: 18px;
-  padding: 10px;
-  margin: 96px 12px 12px 12px;
-  background: papayawhip;
-  border: none;
-  border-radius: 3px;
-  ::placeholder {
-    color: palevioletred;
+  width: 100%;
+  font-size: 15px;
+  padding: 12px 14px;
+  background: #fffff5;
+  border: 2px solid #c7bfff;
+  border-radius: 10px;
+  color: #3c3c5c;
+  outline: none;
+  box-sizing: border-box;
+  font-family: "Courier New", Courier, monospace;
+  transition: border-color 0.2s;
+  &:focus {
+    border-color: #7c6fcf;
   }
+  ::placeholder {
+    color: #b0a8d0;
+    font-style: italic;
+  }
+`;
+
+const CharCount = styled.span<{ isNearLimit: boolean }>`
+  display: block;
+  text-align: right;
+  font-size: 0.68rem;
+  color: ${(props) => (props.isNearLimit ? "#d94f4f" : "#aaa")};
+  margin-bottom: 28px;
+  font-family: "Courier New", Courier, monospace;
+  transition: color 0.2s;
 `;
 
 const Button = styled.button`
   cursor: pointer;
-  background: transparent;
-  border-radius: 3px;
-  border: 2px solid palevioletred;
-  color: palevioletred;
-  margin: 10px 1em;
-  padding: 0.55em 1.9em;
-  margin-bottom: 12px;
+  background: #ffd700;
+  border: none;
+  border-radius: 50px;
+  color: #1a1a3e;
+  padding: 12px 36px;
+  font-size: 0.92rem;
+  font-weight: bold;
+  font-family: "Courier New", Courier, monospace;
+  box-shadow: 0 4px 16px rgba(255, 215, 0, 0.4);
+  transition: transform 0.1s, box-shadow 0.1s;
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(255, 215, 0, 0.5);
+  }
+  &:active {
+    transform: translateY(0);
+  }
 `;
 
 const Result = styled.div`
@@ -96,24 +158,27 @@ export default function KeywordPage({
   result,
 }: IKeywordPageProps) {
   const [hasClicked, setHasClicked] = useState(false);
-  // keyword
   const [kw, setKw] = useState("");
 
-  function handleKeyword() {
-    onSendKw(kw);
-  }
   function handleKwChange(event: React.ChangeEvent<HTMLInputElement>) {
-    setKw(event.target.value);
+    if (event.target.value.length <= MAX_CHARS) {
+      setKw(event.target.value);
+    }
   }
 
   function sendBtn() {
-    handleKeyword();
+    onSendKw(kw);
     setHasClicked(true);
+  }
+
+  function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Enter") sendBtn();
   }
 
   useEffect(() => {
     if (resetPage) {
       setHasClicked(false);
+      setKw("");
     }
   }, [resetPage]);
 
@@ -121,11 +186,22 @@ export default function KeywordPage({
     <CenterFP>
       <FPDiv hasClicked={hasClicked}>
         <Content hasClicked={hasClicked}>
-          <Input
-            id="keyord_select"
-            placeholder="digite aqui uma palavra"
-            onChange={handleKwChange}></Input>
-          <Button onClick={sendBtn}>Enviar</Button>
+          <Decoration>✨</Decoration>
+          <Prompt>Sobre o que será<br />a sua história?</Prompt>
+          <Hint>ex: dinossauro, fada do mar, robô viajante…</Hint>
+          <InputWrapper>
+            <Input
+              id="keyword_select"
+              placeholder="uma palavra ou frase"
+              value={kw}
+              onChange={handleKwChange}
+              onKeyDown={handleKeyDown}
+            />
+          </InputWrapper>
+          <CharCount isNearLimit={kw.length >= MAX_CHARS - 5}>
+            {kw.length}/{MAX_CHARS}
+          </CharCount>
+          <Button onClick={sendBtn}>Criar história</Button>
           {result?.result && <Result>{result?.result.message.content}</Result>}
         </Content>
       </FPDiv>
