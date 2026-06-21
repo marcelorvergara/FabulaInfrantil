@@ -1,0 +1,56 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'back-end/**'
+      - '.github/workflows/deploy-backend.yml'
+
+jobs:
+  deploy:
+    name: Deploy to App Engine
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: back-end/package-lock.json
+
+      - name: Install dependencies
+        working-directory: back-end
+        run: npm ci
+
+      - name: Compile TypeScript
+        working-directory: back-end
+        run: npm run build
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Inject secrets into app.yaml
+        working-directory: back-end
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          FAL_KEY: ${{ secrets.FAL_KEY }}
+        run: |
+          cat >> app.yaml << YAML
+
+          env_variables:
+            OPENAI_API_KEY: "${OPENAI_API_KEY}"
+            FAL_KEY: "${FAL_KEY}"
+            CLIENT_URLS_PRD: "https://fabulainfantil.com,https://fabulainfantil.com.br"
+          YAML
+
+      - name: Deploy to App Engine
+        working-directory: back-end
+        run: gcloud app deploy app.yaml --quiet --project=generate-380122
