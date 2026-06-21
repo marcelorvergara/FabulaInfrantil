@@ -31,10 +31,11 @@ Frontend (Next.js) → Backend (Express/Node) → OpenAI API
 | Framework | Express |
 | Port | 3005 |
 | AI Text | OpenAI GPT-3.5-turbo via `openai` SDK v3.2.1 |
-| AI Images | DALL-E (256×256) via `openai` SDK v3.2.1 — **DEPRECATED** |
+| AI Images | **fal.ai Flux.1 Schnell** (`fal-ai/flux/schnell`) — `square_hd`, ~3-5s |
 | Database | Google Cloud Firestore |
 | Storage | Google Cloud Storage bucket `images-gen` |
 | Deployment | Google Cloud App Engine (`app.yaml`) |
+| CI/CD | GitHub Actions (`.github/workflows/`) |
 
 ### Frontend (`/front-end-2/`)
 | Concern | Choice |
@@ -87,7 +88,7 @@ front-end-2/
 | Method | Path | Description |
 |---|---|---|
 | `POST` | `/generate/:kw/:age` | GPT-3.5-turbo story generation (3-part, branching) |
-| `POST` | `/generateImage` | DALL-E image generation (256×256) — **DEPRECATED** |
+| `POST` | `/generateImage` | fal.ai Flux.1 Schnell image generation (`square_hd`) |
 | `POST` | `/shareStory` | Save story to Firestore, returns `storyId` |
 | `GET` | `/shareStory/:storyId` | Retrieve shared story (EJS rendered for social sharing) |
 
@@ -112,7 +113,8 @@ interface IMessage {
 
 ### Image Storage Pattern
 ```
-https://storage.googleapis.com/images-gen/{storyId}/image-{1,2,3}.webp
+https://storage.googleapis.com/images-gen/temp/{uuid}.jpg   # generated images (fal.ai → GCS)
+https://storage.googleapis.com/images-gen/{storyId}/image-{1,2,3}.webp  # shared story images
 ```
 
 ---
@@ -145,6 +147,7 @@ Rendered server-side with EJS for proper Open Graph/social meta tags.
 ### Backend
 ```
 OPENAI_API_KEY          # OpenAI API key
+FAL_KEY                 # fal.ai API key (image generation)
 FONTEND_SRV             # Frontend URL (note: typo in codebase, should be FRONTEND_SRV)
 GOOGLE_CLOUD_PROJECT    # GCP project ID (for Firestore + Storage)
 ```
@@ -173,32 +176,53 @@ NEXT_PUBLIC_GA_ID       # Google Analytics 4 measurement ID
 
 ## Known Issues & Refactoring Backlog
 
-1. **DALL-E 2 discontinued** — `POST /generateImage` uses the deprecated `openai` v3.2.1 SDK and DALL-E endpoint. Needs replacement (see below).
-2. **OpenAI SDK v3.2.1** — Very old. Should upgrade to v4+ or v5+.
-3. **Next.js 13 `/pages` router** — Legacy router. Candidate for migration to App Router.
-4. **Race condition in sharing** — Frontend waits a hardcoded 3s before fetching the shared story URL; should use proper state/callback.
-5. **No user-facing error for image failures** — Silent failures when image generation fails.
-6. **Env var typo** — `FONTEND_SRV` should be `FRONTEND_SRV`.
-7. **Image resolution** — Currently 256×256 (DALL-E 2 minimum). Should move to 1024×1024+.
-8. **Large `index.tsx`** — All state is local React state in one file; needs decomposition.
-9. **EJS for social sharing** — The share page is an EJS template on the backend; could be a Next.js page instead.
+1. **OpenAI SDK v3.2.1** — Very old. Should upgrade to v4+ or v5+.
+2. **Next.js 13 `/pages` router** — Legacy router. Candidate for migration to App Router.
+3. **Race condition in sharing** — Frontend waits a hardcoded 3s before fetching the shared story URL; should use proper state/callback.
+4. **No user-facing error for image failures** — Silent failures when image generation fails.
+5. **Env var typo** — `FONTEND_SRV` should be `FRONTEND_SRV`.
+6. **Large `index.tsx`** — All state is local React state in one file; needs decomposition.
+7. **EJS for social sharing** — The share page is an EJS template on the backend; could be a Next.js page instead.
 
 ---
 
-## Image Generation Replacement
+## Image Generation
 
-DALL-E 2 was deprecated (Nov 2024) and removed (Feb 2025). **Recommended replacement: DALL-E 3** via the updated OpenAI SDK.
+Images are generated via **fal.ai Flux.1 Schnell** (`fal-ai/flux/schnell`), replacing the deprecated DALL-E 2 endpoint (removed Feb 2025).
 
-Why DALL-E 3:
-- Already using OpenAI for text — no new vendor
-- Built-in content safety (critical for a children's app)
-- 1024×1024 minimum resolution (much better quality)
-- Natural language prompts work well for illustration styles
+- Model: `fal-ai/flux/schnell` — ~3–5s per image
+- Size: `square_hd`
+- Safety checker: enabled (important for children's content)
+- Flow: fal.ai returns a temporary URL → backend downloads it → re-uploads to GCS bucket `images-gen/temp/` → returns GCS URL to frontend
 
-Migration steps:
-1. `npm install openai@latest` in `/back-end/`
-2. Update `GenerateImageController.ts` to use `openai.images.generate()` with `model: "dall-e-3"`
-3. Change image size from `"256x256"` to `"1024x1024"`
-4. Update WebP conversion/storage pipeline if needed
+Key files:
+- `back-end/services/generateImage.service.ts` — fal.ai client call
+- `back-end/controllers/generateImage.controller.ts` — download + GCS upload
 
-Alternative for cost optimization: **Flux.1 Schnell** via [fal.ai](https://fal.ai) — faster and cheaper than DALL-E 3, with good illustration quality. Requires a new API vendor.
+---
+
+## CI/CD Pipeline
+
+GitHub Actions workflows in `.github/workflows/`:
+
+| Workflow | Trigger | What it does |
+|---|---|---|
+| `ci.yml` | PR to `main` | Type-checks backend (`tsc --noEmit`), builds frontend |
+| `deploy-backend.yml` | Push to `main` (back-end changes) | Compiles TS → deploys to App Engine |
+
+### App Engine Deployer SA (`fabula-deployer@generate-380122.iam.gserviceaccount.com`)
+
+Required IAM roles:
+- `roles/appengine.appAdmin` — deploy + promote traffic
+- `roles/cloudbuild.builds.editor` — App Engine uses Cloud Build internally
+- `roles/storage.admin` — staging artifacts
+- `roles/iam.serviceAccountUser` on `generate-380122@appspot.gserviceaccount.com` — actAs App Engine default SA
+
+### GitHub Secrets required
+```
+GCP_SA_KEY       # JSON key for fabula-deployer SA
+OPENAI_API_KEY   # injected into app.yaml at deploy time
+FAL_KEY          # injected into app.yaml at deploy time
+```
+
+Env vars are injected into `app.yaml` at deploy time (not committed to the repo).

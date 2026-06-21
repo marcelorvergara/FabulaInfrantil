@@ -22,23 +22,18 @@ Each story is unique, fully in Brazilian Portuguese, and age-appropriate.
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        User Browser                          │
-│              Next.js 13 · React 18 · styled-components       │
-│                  3D book-flip CSS animation                   │
-└────────────────────────┬────────────────────────────────────┘
-                         │ fetch (REST)
-┌────────────────────────▼────────────────────────────────────┐
-│                    Express / Node.js                          │
-│               TypeScript · Port 3005                          │
-│          Google Cloud App Engine (nodejs22)                   │
-└────┬───────────────┬────────────────────┬───────────────────┘
-     │               │                    │
-     ▼               ▼                    ▼
-  OpenAI API    Google Firestore    Google Cloud Storage
-  GPT-4o mini   (story cache)       bucket: images-gen
-  gpt-image-1   SHA-256 doc IDs     WebP illustrations
+```mermaid
+graph TD
+    A["<b>User Browser</b><br/>Next.js 13 · React 18 · styled-components<br/>3D book-flip CSS animation"]
+    B["<b>Express / Node.js</b><br/>TypeScript · Port 3005<br/>Google Cloud App Engine (nodejs22)"]
+    C["<b>OpenAI API</b><br/>GPT-4o mini<br/>gpt-image-1"]
+    D["<b>Google Firestore</b><br/>(story cache)<br/>SHA-256 doc IDs"]
+    E["<b>Google Cloud Storage</b><br/>bucket: images-gen<br/>WebP illustrations"]
+
+    A -- "fetch (REST)" --> B
+    B --> C
+    B --> D
+    B --> E
 ```
 
 ---
