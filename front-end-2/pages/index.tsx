@@ -343,7 +343,7 @@ export default function Home() {
         localStorage.setItem("fabula_history", JSON.stringify(prev.slice(0, 10)));
       } catch {}
       await pollShareReady(storyIdJson);
-      window.open(shareUrl);
+      window.open(shareUrl, "_blank", "noopener,noreferrer");
       try {
         await navigator.clipboard.writeText(shareUrl);
         setShareStatus("copied");
