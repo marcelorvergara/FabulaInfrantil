@@ -23,9 +23,10 @@ const Btn = styled.button`
 
 interface ITTSButtonProps {
   text: string;
+  shouldStop?: boolean;
 }
 
-export default function TTSButton({ text }: ITTSButtonProps) {
+export default function TTSButton({ text, shouldStop }: ITTSButtonProps) {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
@@ -43,6 +44,14 @@ export default function TTSButton({ text }: ITTSButtonProps) {
       setIsSpeaking(true);
     }
   }
+
+  useEffect(() => {
+    if (shouldStop && isSpeaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shouldStop]);
 
   useEffect(() => {
     return () => {

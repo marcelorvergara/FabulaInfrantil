@@ -39,6 +39,8 @@ const FPDiv = styled.div<TSStyledClickd>`
   font-size: 1.2rem;
   position: absolute;
   z-index: 3;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
   ${(props) => {
     if (props.hasClicked) {
       return css`
@@ -282,7 +284,7 @@ export default function FourthPage({
           <Content hasClicked={hasClicked}>
             <BadgeRow>
               <ProgressBadge>Parte 2 de 3</ProgressBadge>
-              {typingDone && <TTSButton text={storyText || fullContent} />}
+              {typingDone && <TTSButton text={storyText || fullContent} shouldStop={hasClicked} />}
             </BadgeRow>
             <Wrapper>
               <Text>

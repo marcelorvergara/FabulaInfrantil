@@ -175,6 +175,41 @@ const Result = styled.div`
   color: white;
 `;
 
+const StepsRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-bottom: 20px;
+  width: 100%;
+`;
+
+const Step = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+`;
+
+const StepIcon = styled.span`
+  font-size: 1.1rem;
+  line-height: 1;
+`;
+
+const StepLabel = styled.span`
+  font-size: 0.6rem;
+  color: #a09ab0;
+  font-family: "Courier New", Courier, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+`;
+
+const StepArrow = styled.span`
+  font-size: 0.65rem;
+  color: #c0b8d8;
+  margin-top: -10px;
+`;
+
 type TSStyledClickd = {
   hasClicked: boolean;
 };
@@ -219,6 +254,22 @@ export default function KeywordPage({
     <CenterFP>
       <FPDiv hasClicked={hasClicked}>
         <Content hasClicked={hasClicked}>
+          <StepsRow>
+            <Step>
+              <StepIcon>✨</StepIcon>
+              <StepLabel>Tema</StepLabel>
+            </Step>
+            <StepArrow>›</StepArrow>
+            <Step>
+              <StepIcon>🦸</StepIcon>
+              <StepLabel>Herói</StepLabel>
+            </Step>
+            <StepArrow>›</StepArrow>
+            <Step>
+              <StepIcon>📖</StepIcon>
+              <StepLabel>Leia</StepLabel>
+            </Step>
+          </StepsRow>
           <Decoration>✨</Decoration>
           <Prompt>Sobre o que será<br />a sua história?</Prompt>
           <Hint>ex: dinossauro, fada do mar, robô viajante…</Hint>

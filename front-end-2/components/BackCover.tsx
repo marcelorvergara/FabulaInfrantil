@@ -59,11 +59,21 @@ const Button = styled.button<{ $loading?: boolean }>`
   animation: ${(p) => (p.$loading ? pulse : "none")} 1.2s ease-in-out infinite;
 `;
 
-const Divider = styled.hr`
-  width: 80%;
-  border: none;
+const SupportSection = styled.div`
+  width: 100%;
+  margin-top: 8px;
   border-top: 1px solid rgba(255, 255, 255, 0.12);
-  margin: 4px 0 16px 0;
+  padding-top: 16px;
+`;
+
+const SupportHeading = styled.p`
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  text-align: center;
+  margin-bottom: 12px;
+  font-family: "Courier New", Courier, monospace;
 `;
 
 const TokenSection = styled.div`
@@ -181,40 +191,42 @@ export default function BackCover({
           </Button>
         </ButtonRow>
 
-        <Divider />
+        <SupportSection>
+          <SupportHeading>Apoiar o projeto</SupportHeading>
 
-        <TokenSection>
-          <TokenHeading>custo desta história</TokenHeading>
-          <CostRow>
-            <span>Texto (IA · ~4k tokens)</span>
-            <span>≈ R$0,05</span>
-          </CostRow>
-          <CostRow>
-            <span>3 ilustrações (fal.ai)</span>
-            <span>≈ R$0,30</span>
-          </CostRow>
-          <CostDivider />
-          <CostTotal>
-            <span>Total consumido</span>
-            <span>≈ R$0,35</span>
-          </CostTotal>
-        </TokenSection>
+          <TokenSection>
+            <TokenHeading>custo desta história</TokenHeading>
+            <CostRow>
+              <span>Texto (IA · ~4k tokens)</span>
+              <span>≈ R$0,05</span>
+            </CostRow>
+            <CostRow>
+              <span>3 ilustrações (fal.ai)</span>
+              <span>≈ R$0,30</span>
+            </CostRow>
+            <CostDivider />
+            <CostTotal>
+              <span>Total consumido</span>
+              <span>≈ R$0,35</span>
+            </CostTotal>
+          </TokenSection>
 
-        <RechargeHeading>
-          Mantenha a mágica viva ✨ cada história consome créditos de IA — se
-          valeu a pena, considere contribuir!
-        </RechargeHeading>
+          <RechargeHeading>
+            Cada história consome créditos de IA — se valeu a pena, considere
+            contribuir!
+          </RechargeHeading>
 
-        <QrWrapper>
-          <Image
-            src="/qrcode.png"
-            alt="QR Code PIX para recarregar tokens"
-            width={200}
-            height={200}
-            priority={true}
-          />
-          <PixKey>Chave pix: 21 972464530</PixKey>
-        </QrWrapper>
+          <QrWrapper>
+            <Image
+              src="/qrcode.png"
+              alt="QR Code PIX para recarregar tokens"
+              width={200}
+              height={200}
+              priority={true}
+            />
+            <PixKey>Chave pix: 21 972464530</PixKey>
+          </QrWrapper>
+        </SupportSection>
       </CoverBack>
     </CenterBook>
   );
