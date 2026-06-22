@@ -71,7 +71,8 @@ const BookSpread = styled.div`
 
 const LeftSide = styled.div`
   width: 310px;
-  height: 888px;
+  height: calc(100vh - 22px);
+  min-height: 888px;
   position: relative;
   z-index: 10;
   flex-shrink: 0;

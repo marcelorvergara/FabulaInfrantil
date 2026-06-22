@@ -8,11 +8,11 @@ const shimmer = keyframes`
 
 const PageDiv = styled.div`
   position: absolute;
-  top: 0;
-  left: 0;
+  top: 1%;
+  left: 2%;
   width: 100%;
-  height: 880px;
-  background: linear-gradient(to bottom, #2c2c4a, #3c3c5c);
+  height: 95%;
+  background: #e4e4e4;
   border-radius: 20px 2px 2px 20px;
   box-shadow: -2px 1px 10px gray;
   transform: rotateX(10deg);
@@ -29,7 +29,7 @@ const ImageWrapper = styled.div`
 const Skeleton = styled.div`
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, #2c2c4a 25%, #3d3d5c 50%, #2c2c4a 75%);
+  background: linear-gradient(90deg, #d0d0d0 25%, #e8e8e8 50%, #d0d0d0 75%);
   background-size: 200% 100%;
   animation: ${shimmer} 1.5s infinite;
 `;
@@ -40,7 +40,7 @@ const Placeholder = styled.div`
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: rgba(255, 255, 255, 0.28);
+  color: rgba(0, 0, 80, 0.28);
   font-family: "Courier New", Courier, monospace;
   font-size: 0.76rem;
   text-align: center;
