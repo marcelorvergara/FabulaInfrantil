@@ -1,9 +1,8 @@
 * {
-  margin: 0px;
   font-family: "Courier New", Courier, monospace;
 }
 
 body {
   background: linear-gradient(160deg, #1a1a5e 0%, #0d0d30 60%, #05050f 100%);
-  min-height: 100vh;
+  min-height: 50vh;
 }
