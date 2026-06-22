@@ -46,28 +46,44 @@ async function getStory(storyId: string) {
 }
 
 async function storeImage(storyId: string, images: string[]) {
-  try {
-    const bucket = storage.bucket(bucketName);
-    for (let i = 0; i < images.length; i++) {
+  const bucket = storage.bucket(bucketName);
+  const uploads = images.map((url, i) => {
+    return new Promise<void>((resolve, reject) => {
       const file = bucket.file(`${storyId}/image-${i + 1}.webp`);
-      https.get(images[i], (response) => {
-        response
-          .pipe(file.createWriteStream())
-          .on("error", function (err) {
-            console.log("store img err", err);
-          })
-          .on("finish", function () {
-            console.log(`Image uploaded to ${bucketName}/image-${i + 1}`);
-          });
-      });
-    }
-  } catch (err) {
-    throw err;
-  }
+      const writeStream = file.createWriteStream();
+      https
+        .get(url, (response) => {
+          response
+            .pipe(writeStream)
+            .on("error", (err) => {
+              console.error(`store img ${i + 1} err`, err);
+              reject(err);
+            })
+            .on("finish", () => {
+              console.log(`Image uploaded to ${bucketName}/${storyId}/image-${i + 1}`);
+              resolve();
+            });
+        })
+        .on("error", (err) => {
+          console.error(`https.get img ${i + 1} err`, err);
+          reject(err);
+        });
+    });
+  });
+  await Promise.all(uploads);
+}
+
+async function checkReady(storyId: string): Promise<boolean> {
+  const bucket = storage.bucket(bucketName);
+  const checks = await Promise.all(
+    [1, 2, 3].map((i) => bucket.file(`${storyId}/image-${i}.webp`).exists())
+  );
+  return checks.every(([exists]) => exists);
 }
 
 export default {
   shareStory,
   getStory,
   storeImage,
+  checkReady,
 };

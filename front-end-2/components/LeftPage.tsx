@@ -63,7 +63,22 @@ export interface ILeftPageProps {
   isImage1Loading: boolean;
   isImage2Loading: boolean;
   isImage3Loading: boolean;
+  image1Error: boolean;
+  image2Error: boolean;
+  image3Error: boolean;
 }
+
+const ImageErrorMsg = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: rgba(180, 0, 0, 0.55);
+  font-family: "Courier New", Courier, monospace;
+  font-size: 0.8rem;
+  text-align: center;
+  padding: 24px;
+`;
 
 export default function LeftPage({
   currentPart,
@@ -73,6 +88,9 @@ export default function LeftPage({
   isImage1Loading,
   isImage2Loading,
   isImage3Loading,
+  image1Error,
+  image2Error,
+  image3Error,
 }: ILeftPageProps) {
   const imageMap: Record<number, string> = {
     1: firstImage,
@@ -84,9 +102,15 @@ export default function LeftPage({
     2: isImage2Loading,
     3: isImage3Loading,
   };
+  const errorMap: Record<number, boolean> = {
+    1: image1Error,
+    2: image2Error,
+    3: image3Error,
+  };
 
   const image = imageMap[currentPart];
   const isLoading = loadingMap[currentPart] ?? false;
+  const hasError = errorMap[currentPart] ?? false;
 
   return (
     <PageDiv>
@@ -99,6 +123,8 @@ export default function LeftPage({
         <ImageWrapper>
           {isLoading ? (
             <Skeleton />
+          ) : hasError ? (
+            <ImageErrorMsg>Imagem não disponível</ImageErrorMsg>
           ) : (
             <Image
               src={image}

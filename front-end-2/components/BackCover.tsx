@@ -1,4 +1,4 @@
-import styled from "styled-components";
+import styled, { keyframes } from "styled-components";
 import Image from "next/image";
 
 const CenterBook = styled.section`
@@ -41,8 +41,13 @@ const ButtonRow = styled.div`
   margin-bottom: 20px;
 `;
 
-const Button = styled.button`
-  cursor: pointer;
+const pulse = keyframes`
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+`;
+
+const Button = styled.button<{ $loading?: boolean }>`
+  cursor: ${(p) => (p.$loading ? "default" : "pointer")};
   background: transparent;
   border-radius: 3px;
   border: 2px solid palevioletred;
@@ -51,6 +56,7 @@ const Button = styled.button`
   font-size: 1rem;
   flex: 1;
   font-family: "Courier New", Courier, monospace;
+  animation: ${(p) => (p.$loading ? pulse : "none")} 1.2s ease-in-out infinite;
 `;
 
 const Divider = styled.hr`
@@ -143,7 +149,7 @@ const PixKey = styled.p`
 export interface IBackCoverProps {
   onSendReset: (cond: boolean) => void;
   shareStory: () => void;
-  shareStatus: "idle" | "copied" | "error";
+  shareStatus: "idle" | "sharing" | "copied" | "error";
 }
 
 export default function BackCover({
@@ -162,8 +168,16 @@ export default function BackCover({
 
         <ButtonRow>
           <Button onClick={() => onSendReset(true)}>Reiniciar</Button>
-          <Button onClick={shareStory} disabled={shareStatus === "copied"}>
-            {shareStatus === "copied" ? "Link copiado! ✨" : "Compartilhar"}
+          <Button
+            onClick={shareStory}
+            disabled={shareStatus === "sharing" || shareStatus === "copied"}
+            $loading={shareStatus === "sharing"}
+          >
+            {shareStatus === "sharing"
+              ? "Preparando link..."
+              : shareStatus === "copied"
+              ? "Link copiado! ✨"
+              : "Compartilhar"}
           </Button>
         </ButtonRow>
 

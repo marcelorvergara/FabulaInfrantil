@@ -25,7 +25,7 @@ async function getStory(req: Request, res: Response, next: NextFunction) {
   try {
     const storyData = await ShareStory.getStory(req.params.storyId);
     if (storyData !== undefined) {
-      // store images in a storage
+      // store images in GCS and wait for all uploads to complete
       await ShareStory.storeImage(
         req.params.storyId,
         storyData.story.firstImage,
@@ -41,19 +41,16 @@ async function getStory(req: Request, res: Response, next: NextFunction) {
       // story Id for sharing in social networks
       storyData.story.storyId = req.params.storyId;
 
-      // time to store image and don't give http 404
-      setTimeout(() => {
-        ejs.renderFile("public/index.ejs", storyData, (err, html) => {
-          if (err) {
-            console.log(err);
-            res.writeHead(500, { "Content-Type": "text/plain" });
-            res.end("Error rendering template");
-          } else {
-            res.writeHead(200, { "Content-Type": "text/html" });
-            res.end(html);
-          }
-        });
-      }, 3000);
+      ejs.renderFile("public/index.ejs", storyData, (err, html) => {
+        if (err) {
+          console.log(err);
+          res.writeHead(500, { "Content-Type": "text/plain" });
+          res.end("Error rendering template");
+        } else {
+          res.writeHead(200, { "Content-Type": "text/html" });
+          res.end(html);
+        }
+      });
     } else {
       res.status(500).send({ error: "Could not share story" });
     }
@@ -62,7 +59,17 @@ async function getStory(req: Request, res: Response, next: NextFunction) {
   }
 }
 
+async function checkReady(req: Request, res: Response, next: NextFunction) {
+  try {
+    const ready = await ShareStory.checkReady(req.params.storyId);
+    res.json({ ready });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export default {
   shareStory,
   getStory,
+  checkReady,
 };

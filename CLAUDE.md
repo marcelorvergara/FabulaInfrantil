@@ -24,7 +24,7 @@ Frontend (Next.js/Vercel) → Backend (Express/App Engine) → OpenAI GPT-3.5-tu
 |---|---|
 | Runtime | Node.js + TypeScript |
 | Framework | Express · port 3005 |
-| AI Text | OpenAI GPT-3.5-turbo · `openai` SDK v3.2.1 (old — don't upgrade without testing) |
+| AI Text | OpenAI GPT-3.5-turbo · `openai` SDK v6.44.0 |
 | AI Images | fal.ai `fal-ai/flux/schnell` · `square_hd` · ~3–5s |
 | Database | Google Cloud Firestore |
 | Storage | GCS bucket `images-gen` |
@@ -59,7 +59,9 @@ back-end/
 ### Frontend
 ```
 front-end-2/
-├── pages/index.tsx                # All app state lives here (large file)
+├── pages/index.tsx                # App shell; orchestrates state and routing between pages
+├── hooks/
+│   └── useStoryImages.ts          # Image state + generation logic (firstImage/secondImage/thirdImage, loading, errors)
 ├── components/
 │   ├── Cover.tsx                  # z-index 8; pointer-events:none after flip
 │   ├── KeywordPage.tsx            # z-index 7; keyword input + suggestion chips
@@ -68,13 +70,13 @@ front-end-2/
 │   ├── ThirdPage.tsx              # z-index 4; Part 1 + branch options
 │   ├── FourthPage.tsx             # z-index 3; Part 2 + branch options
 │   ├── LastPage.tsx               # z-index 2; Part 3 ending
-│   ├── BackCover.tsx              # z-index 1; share + reset + PIX QR
-│   ├── LeftPage.tsx               # Illustration panel (only when currentPart > 0)
+│   ├── BackCover.tsx              # z-index 1; share + reset + PIX QR; shareStatus: "idle"|"sharing"|"copied"|"error"
+│   ├── LeftPage.tsx               # Illustration panel (only when currentPart > 0); shows error state per image
 │   ├── SpinnerAnimation.tsx       # Loading with Portuguese phrases
 │   ├── Modal.tsx                  # Fullscreen image viewer
 │   └── TTSButton.tsx              # Text-to-speech on story pages
 └── helpers/
-    ├── fetchHelper.ts             # getText, generateImage, shareStoryHelper
+    ├── fetchHelper.ts             # getText, generateImage, shareStoryHelper, pollShareReady
     ├── generalFunctions.ts        # getFirst60Percent (trims image prompts)
     └── useTypewriter.ts           # Typewriter effect hook
 ```
@@ -88,6 +90,7 @@ front-end-2/
 | `POST` | `/generate/:kw/:age` | GPT-3.5-turbo story (3-part, branching) |
 | `POST` | `/generateImage` | fal.ai image generation |
 | `POST` | `/shareStory` | Save story to Firestore → returns `storyId` |
+| `GET` | `/shareStory/:storyId/ready` | Returns `{ ready: bool }` — true once all 3 GCS images exist |
 | `GET` | `/shareStory/:storyId` | Retrieve + EJS-render shared story |
 
 ---
@@ -133,12 +136,11 @@ images-gen/{storyId}/image-{1,2,3}.webp  # permanent (after share)
 # Backend
 OPENAI_API_KEY          # OpenAI
 FAL_KEY                 # fal.ai
-FONTEND_SRV             # Frontend URL (typo — do not rename without updating code)
 GOOGLE_CLOUD_PROJECT    # GCP project
 
 # Frontend
-NEXT_PUBLIC_BACKEND_URL
-NEXT_PUBLIC_GA_ID
+NEXT_PUBLIC_BACKEND_SRV          # Backend base URL (e.g. http://localhost:3005)
+NEXT_PUBLIC_GA4_TRACKING_ID      # Google Analytics 4 measurement ID
 ```
 
 ---

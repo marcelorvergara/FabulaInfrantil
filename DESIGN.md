@@ -106,17 +106,18 @@ https://story.fabulainfantil.com/shareStory/{storyId}
 - Document stored in Firestore (default collection): `{ story: string[] }` — `[keyword, part1, part2, part3, ...messages]`
 - Images converted from temp JPGs to permanent WebPs at `images-gen/{storyId}/image-{1,2,3}.webp` on share
 - Page rendered server-side with EJS for correct Open Graph / social meta tags
-- Frontend waits 1.5s before opening the share URL (hardcoded race condition — see backlog)
+- On share: frontend polls `GET /shareStory/:storyId/ready` every 500ms (up to 10s) before opening the URL, ensuring GCS images are accessible; opens anyway on timeout
+- During polling the "Compartilhar" button shows "Preparando link..." with a pulse animation and is disabled; transitions to "Link copiado! ✨" once the URL is in the clipboard
 - Entry also saved to `localStorage` `fabula_history` (up to 10 entries) for the Cover history panel
 
 ---
 
 ## Known Issues & Refactoring Backlog
 
-1. **OpenAI SDK v3.2.1** — Very old. Should upgrade to v4+/v5+.
-2. **Next.js 13 `/pages` router** — Legacy router. Candidate for App Router migration.
-3. **Race condition in sharing** — Frontend waits hardcoded 1.5s before opening shared URL; should use a callback/polling.
-4. **No user-facing error for image failures** — Image errors are silent; only placeholder is shown.
-5. **Env var typo** — `FONTEND_SRV` in backend should be `FRONTEND_SRV`.
-6. **Large `index.tsx`** — All app state in one file; needs decomposition into context/hooks.
-7. **EJS for social sharing** — Share page is an EJS template on the backend; could be a Next.js page instead.
+1. ~~**OpenAI SDK v3.2.1** — Very old. Should upgrade to v4+/v5+.~~ **Resolved** — backend already uses `openai` v6.44.0.
+2. **Next.js 13 `/pages` router** — Legacy router. Candidate for App Router migration. *(Deferred)*
+3. ~~**Race condition in sharing** — Frontend waits hardcoded 1.5s before opening shared URL; should use a callback/polling.~~ **Resolved** — replaced with `/shareStory/:storyId/ready` polling endpoint.
+4. ~~**No user-facing error for image failures** — Image errors are silent; only placeholder is shown.~~ **Resolved** — `useStoryImages` hook surfaces per-image error state to components.
+5. ~~**Env var typo** — `FONTEND_SRV` in backend should be `FRONTEND_SRV`.~~ **Resolved** — unused variable removed from `front-end-2/.env.local`.
+6. ~~**Large `index.tsx`** — All app state in one file; needs decomposition into context/hooks.~~ **Resolved** — image state + generation logic extracted to `hooks/useStoryImages.ts`.
+7. **EJS for social sharing** — Share page is an EJS template on the backend; could be a Next.js page instead. *(Deferred)*

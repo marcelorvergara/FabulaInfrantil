@@ -159,6 +159,25 @@ const ImageSkeleton = styled.div`
   }
 `;
 
+const InlineImageError = styled.div`
+  float: right;
+  margin: 4px;
+  width: 128px;
+  height: 128px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 0.65rem;
+  color: rgba(180, 0, 0, 0.55);
+  text-align: center;
+  border: 1px dashed rgba(180, 0, 0, 0.25);
+  @media (min-width: 640px) {
+    display: none;
+  }
+`;
+
 const Text = styled.div`
   margin: 0;
 `;
@@ -199,6 +218,7 @@ export interface IThirdPageProps {
   isImageLoading: boolean;
   resetPage: boolean;
   image: string;
+  imageError?: boolean;
 }
 
 export default function ThirdPage({
@@ -208,6 +228,7 @@ export default function ThirdPage({
   isImageLoading,
   resetPage,
   image,
+  imageError,
 }: IThirdPageProps) {
   const [hasClicked, setHasClicked] = useState(false);
   const [selectedValue, setSelectedValue] = useState<string | null>(null);
@@ -273,6 +294,8 @@ export default function ThirdPage({
                         <Container key={k}>
                           {isImageLoading ? (
                             <ImageSkeleton />
+                          ) : imageError ? (
+                            <InlineImageError>Imagem não disponível</InlineImageError>
                           ) : (
                             <ImageContainer
                               src={image}

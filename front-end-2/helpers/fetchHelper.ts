@@ -152,6 +152,29 @@ export async function shareStoryHelper(
   return await fetchWithExponentialBackoff();
 }
 
+export async function pollShareReady(
+  storyId: string,
+  maxWaitMs = 10000
+): Promise<void> {
+  const interval = 500;
+  const deadline = Date.now() + maxWaitMs;
+  while (Date.now() < deadline) {
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_SRV}/shareStory/${storyId}/ready`
+      );
+      if (res.ok) {
+        const { ready } = await res.json();
+        if (ready) return;
+      }
+    } catch {
+      // network hiccup — keep polling
+    }
+    await sleep(interval);
+  }
+  // timed out — open anyway so the user isn't stuck
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }

@@ -35,15 +35,16 @@ const LeftPage = dynamic(() => import("@/components/LeftPage"), {
   ssr: false,
 });
 import {
-  generateImage,
   getText,
   shareStoryHelper,
+  pollShareReady,
 } from "@/helpers/fetchHelper";
 import { IMessage, IResult } from "@/interfaces/IResult";
 import { useEffect, useState } from "react";
 import styled from "styled-components";
 import { getFirst60Percent } from "@/helpers/generalFunctions";
 import dynamic from "next/dynamic";
+import { useStoryImages } from "@/hooks/useStoryImages";
 
 const FirstDiv = styled.div`
   margin-top: 22px;
@@ -126,8 +127,6 @@ const RetryButton = styled.button`
   &:active { transform: translateY(0); }
 `;
 
-const placeHolderImg = "/placeholder.png";
-
 export default function Home() {
   const [keyword, setKeyword] = useState("");
   const [age, setAge] = useState("");
@@ -135,12 +134,12 @@ export default function Home() {
   const [resetPage, setResetPage] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [story, setStory] = useState<string[]>([""]);
-  const [firstImage, setFirstImage] = useState(placeHolderImg);
-  const [secondImage, setSecondImage] = useState(placeHolderImg);
-  const [thirdImage, setThirdImage] = useState(placeHolderImg);
-  const [isImage1Loading, setIsImage1Loading] = useState(false);
-  const [isImage2Loading, setIsImage2Loading] = useState(false);
-  const [isImage3Loading, setIsImage3Loading] = useState(false);
+  const {
+    firstImage, secondImage, thirdImage,
+    isImage1Loading, isImage2Loading, isImage3Loading,
+    image1Error, image2Error, image3Error,
+    generateStoryImage, resetImages,
+  } = useStoryImages();
   const [firstPart, setFirstPart] = useState<IMessage[]>([
     {
       role: "",
@@ -150,7 +149,7 @@ export default function Home() {
   const [heroName, setHeroName] = useState("");
   const [currentPart, setCurrentPart] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [shareStatus, setShareStatus] = useState<"idle" | "copied" | "error">("idle");
+  const [shareStatus, setShareStatus] = useState<"idle" | "sharing" | "copied" | "error">("idle");
 
   const handleKw = (kw: string) => {
     const resolvedKw = kw === "" ? "Uma história legal" : kw;
@@ -183,8 +182,8 @@ export default function Home() {
       setCurrentPart(1);
 
       const heroSnippet = heroName ? ` O herói se chama ${heroName}.` : "";
-      setIsImage1Loading(true);
-      generateImage(
+      generateStoryImage(
+        1,
         "gere uma figura  para uma criança com idade entre " +
           ageStr.replace("_", " e ") +
           " anos que resume o seguinte texto:\n" +
@@ -193,10 +192,7 @@ export default function Home() {
           getFirst60Percent(
             resultJson.result.message.content.replace("\\n", " ")
           )
-      )
-        .then((r) => r.json())
-        .then((j) => { setFirstImage(j.result); setIsImage1Loading(false); })
-        .catch((err) => { console.error("Image 1 failed:", err); setFirstImage(placeHolderImg); setIsImage1Loading(false); });
+      );
     } catch (error) {
       console.error(error);
       setIsLoading(false);
@@ -240,8 +236,8 @@ export default function Home() {
         setCurrentPart(2);
 
         const heroSnippet2 = heroName ? ` O herói se chama ${heroName}.` : "";
-        setIsImage2Loading(true);
-        generateImage(
+        generateStoryImage(
+          2,
           "gere uma imgaem sem texto para uma criança com idade entre " +
             age.replace("_", " e ") +
             " anos sobre o seguinte texto: " +
@@ -250,10 +246,7 @@ export default function Home() {
             getFirst60Percent(
               resultJson.result.message.content.replace("\\n", " ")
             )
-        )
-          .then((r) => r.json())
-          .then((j) => { setSecondImage(j.result); setIsImage2Loading(false); })
-          .catch((err) => { console.error("Image 2 failed:", err); setSecondImage(placeHolderImg); setIsImage2Loading(false); });
+        );
       }
     } catch (error) {
       console.error(error);
@@ -297,8 +290,8 @@ export default function Home() {
         setCurrentPart(3);
 
         const heroSnippet3 = heroName ? ` O herói se chama ${heroName}.` : "";
-        setIsImage3Loading(true);
-        generateImage(
+        generateStoryImage(
+          3,
           "gere uma imgaem sem texto para uma criança com idade entre " +
             age.replace("_", " e ") +
             " anos sobre o seguinte texto: " +
@@ -307,10 +300,7 @@ export default function Home() {
             getFirst60Percent(
               resultJson.result.message.content.replace("\\n", " ")
             )
-        )
-          .then((r) => r.json())
-          .then((j) => { setThirdImage(j.result); setIsImage3Loading(false); })
-          .catch((err) => { console.error("Image 3 failed:", err); setThirdImage(placeHolderImg); setIsImage3Loading(false); });
+        );
       }
     } catch (error) {
       console.error(error);
@@ -322,12 +312,7 @@ export default function Home() {
   const handleReset = (cond: boolean) => {
     setResetPage(cond);
     setResult({} as IResult);
-    setFirstImage(placeHolderImg);
-    setSecondImage(placeHolderImg);
-    setThirdImage(placeHolderImg);
-    setIsImage1Loading(false);
-    setIsImage2Loading(false);
-    setIsImage3Loading(false);
+    resetImages();
     setHeroName("");
     setCurrentPart(0);
     setErrorMessage(null);
@@ -341,6 +326,7 @@ export default function Home() {
   }, [resetPage]);
 
   async function shareStory() {
+    setShareStatus("sharing");
     const storyId = await shareStoryHelper(
       story,
       firstImage,
@@ -356,16 +342,17 @@ export default function Home() {
         prev.unshift({ storyId: storyIdJson, keyword, firstImage, date: new Date().toISOString() });
         localStorage.setItem("fabula_history", JSON.stringify(prev.slice(0, 10)));
       } catch {}
-      // time necessary to store images in storage
-      setTimeout(function () {
-        window.open(shareUrl);
-      }, 1500);
+      await pollShareReady(storyIdJson);
+      window.open(shareUrl);
       try {
         await navigator.clipboard.writeText(shareUrl);
         setShareStatus("copied");
       } catch {
         setShareStatus("error");
       }
+      setTimeout(() => setShareStatus("idle"), 3000);
+    } else {
+      setShareStatus("error");
       setTimeout(() => setShareStatus("idle"), 3000);
     }
   }
@@ -385,6 +372,9 @@ export default function Home() {
                 isImage1Loading={isImage1Loading}
                 isImage2Loading={isImage2Loading}
                 isImage3Loading={isImage3Loading}
+                image1Error={image1Error}
+                image2Error={image2Error}
+                image3Error={image3Error}
               />
             )}
           </LeftSide>
@@ -410,6 +400,7 @@ export default function Home() {
               isLoading={isLoading}
               isImageLoading={isImage1Loading}
               image={firstImage}
+              imageError={image1Error}
             />
             <FourthPage
               onSendOption={handleOption2}
@@ -418,6 +409,7 @@ export default function Home() {
               isLoading={isLoading}
               isImageLoading={isImage2Loading}
               image={secondImage}
+              imageError={image2Error}
             />
             <LastPage
               resetPage={resetPage}
@@ -425,6 +417,7 @@ export default function Home() {
               isLoading={isLoading}
               isImageLoading={isImage3Loading}
               image={thirdImage}
+              imageError={image3Error}
             />
             <BackCover onSendReset={handleReset} shareStory={shareStory} shareStatus={shareStatus} />
           </RightSide>

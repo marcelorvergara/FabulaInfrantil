@@ -17,8 +17,13 @@ async function storeImage(
   return await ShareStory.storeImage(storyId, [firstImg, secondImg, thirdImg]);
 }
 
+async function checkReady(storyId: string): Promise<boolean> {
+  return await ShareStory.checkReady(storyId);
+}
+
 export default {
   shareStory,
   getStory,
   storeImage,
+  checkReady,
 };
