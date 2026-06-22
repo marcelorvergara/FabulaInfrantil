@@ -35,7 +35,8 @@ Frontend (Next.js/Vercel) → Backend (Express/App Engine) → OpenAI GPT-3.5-tu
 |---|---|
 | Framework | Next.js 13.2.3 · legacy `/pages` router |
 | UI | React 18 + styled-components |
-| Analytics | GA4 + Vercel Analytics |
+| Analytics | Vercel Analytics + Google Ads (`AW-1032977240`) |
+| Cookie consent | `CookieBanner.tsx` — consent stored in `localStorage` key `cookie_consent`; Google Ads script loads only after acceptance (LGPD) |
 
 ---
 
@@ -74,7 +75,8 @@ front-end-2/
 │   ├── LeftPage.tsx               # Illustration panel (only when currentPart > 0); shows error state per image
 │   ├── SpinnerAnimation.tsx       # Loading with Portuguese phrases
 │   ├── Modal.tsx                  # Fullscreen image viewer
-│   └── TTSButton.tsx              # Text-to-speech on story pages
+│   ├── TTSButton.tsx              # Text-to-speech on story pages
+│   └── CookieBanner.tsx           # z-index 9999; fixed bottom; shows until user accepts/declines; LGPD consent gate for Google Ads
 └── helpers/
     ├── fetchHelper.ts             # getText, generateImage, shareStoryHelper, pollShareReady
     ├── generalFunctions.ts        # getFirst60Percent (trims image prompts)
@@ -121,12 +123,27 @@ images-gen/{storyId}/image-{1,2,3}.webp  # permanent (after share)
 
 | Layer | z-index |
 |---|---|
+| CookieBanner | 9999 |
 | LeftSide / ErrorCard | 10 |
 | Cover (after flip: + `pointer-events: none`) | 8 |
 | KeywordPage → BackCover (7 → 1) | 7–1 |
 | Any page during flip animation | 9 |
 
 `LeftSide` must be 10 so it paints over flipped pages (z-index 9) that visually rotate into the left panel area.
+
+---
+
+## Tracking & Consent
+
+Google Ads tag `AW-1032977240` is loaded via `next/script` (`strategy="afterInteractive"`) in `pages/_app.tsx`, **only when the user has accepted cookies**.
+
+Consent flow (`_app.tsx`):
+1. On mount, read `localStorage.getItem("cookie_consent")` → `null` (first visit) | `"true"` | `"false"`
+2. `null` → render `<CookieBanner>` at bottom of page
+3. User clicks **Aceitar** → store `"true"`, mount Google Ads `<Script>` tags
+4. User clicks **Recusar** → store `"false"`, no tracking scripts load
+
+To add future consent-gated scripts, follow the same pattern: render inside `{consent === true && …}`.
 
 ---
 
