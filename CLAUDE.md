@@ -60,12 +60,12 @@ back-end/
 ### Frontend
 ```
 front-end-2/
-├── pages/index.tsx                # App shell; orchestrates state and routing between pages
+├── pages/index.tsx                # App shell; orchestrates state and routing between pages; reads ?keyword= param → passes to KeywordPage
 ├── hooks/
 │   └── useStoryImages.ts          # Image state + generation logic (firstImage/secondImage/thirdImage, loading, errors)
 ├── components/
 │   ├── Cover.tsx                  # z-index 8; pointer-events:none after flip
-│   ├── KeywordPage.tsx            # z-index 7; keyword input + suggestion chips
+│   ├── KeywordPage.tsx            # z-index 7; keyword input + suggestion chips; accepts initialKeyword prop to pre-fill from URL
 │   ├── HeroPage.tsx               # z-index 6; hero name input
 │   ├── AgePage.tsx                # z-index 5; age cards; triggers API call
 │   ├── ThirdPage.tsx              # z-index 4; Part 1 + branch options
