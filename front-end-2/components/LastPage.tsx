@@ -230,7 +230,6 @@ export default function LastPage({
           <Content hasClicked={hasClicked}>
             <BadgeRow>
               <ProgressBadge>Parte 3 de 3</ProgressBadge>
-              {typingDone && <TTSButton text={result?.result?.message?.content ?? ""} shouldStop={hasClicked} />}
             </BadgeRow>
             <Wrapper>
               <Text>
@@ -267,6 +266,9 @@ export default function LastPage({
             </Wrapper>
             {typingDone && (
               <EndWrapper>
+                <BadgeRow>
+                  <TTSButton text={result?.result?.message?.content ?? ""} shouldStop={hasClicked} />
+                </BadgeRow>
                 <ButtonDiv hasClicked={hasClicked}>
                   <Button
                     hasClicked={hasClicked}

@@ -284,7 +284,6 @@ export default function FourthPage({
           <Content hasClicked={hasClicked}>
             <BadgeRow>
               <ProgressBadge>Parte 2 de 3</ProgressBadge>
-              {typingDone && <TTSButton text={storyText || fullContent} shouldStop={hasClicked} />}
             </BadgeRow>
             <Wrapper>
               <Text>
@@ -321,6 +320,9 @@ export default function FourthPage({
             </Wrapper>
             {typingDone && (
               <OptionsWrapper>
+                <BadgeRow>
+                  <TTSButton text={storyText || fullContent} shouldStop={hasClicked} />
+                </BadgeRow>
                 {optionItems.map(({ id, value, label }) => (
                   <ItemLabel key={id} htmlFor={id} isSelected={selectedValue === value}>
                     <RadioButton
