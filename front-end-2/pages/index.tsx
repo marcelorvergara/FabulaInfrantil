@@ -334,6 +334,14 @@ export default function Home() {
     }
   }, [resetPage]);
 
+  useEffect(() => {
+    if (currentPart === 3 && typeof (window as any).gtag === 'function') {
+      (window as any).gtag('event', 'conversion', {
+        send_to: 'AW-1032977240/i9TXCI68psccENj2x-wD',
+      });
+    }
+  }, [currentPart]);
+
   async function shareStory() {
     setShareStatus("sharing");
     const storyId = await shareStoryHelper(
