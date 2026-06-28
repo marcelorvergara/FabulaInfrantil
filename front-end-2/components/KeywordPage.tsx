@@ -218,12 +218,14 @@ export interface IKeywordPageProps {
   onSendKw: (text: string) => void;
   resetPage: boolean;
   result?: IResult;
+  initialKeyword?: string;
 }
 
 export default function KeywordPage({
   onSendKw,
   resetPage,
   result,
+  initialKeyword,
 }: IKeywordPageProps) {
   const [hasClicked, setHasClicked] = useState(false);
   const [kw, setKw] = useState("");
@@ -249,6 +251,10 @@ export default function KeywordPage({
       setKw("");
     }
   }, [resetPage]);
+
+  useEffect(() => {
+    if (initialKeyword) setKw(initialKeyword);
+  }, [initialKeyword]);
 
   return (
     <CenterFP>

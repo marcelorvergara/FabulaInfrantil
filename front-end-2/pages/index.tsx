@@ -45,6 +45,7 @@ import styled from "styled-components";
 import { getFirst60Percent } from "@/helpers/generalFunctions";
 import dynamic from "next/dynamic";
 import { useStoryImages } from "@/hooks/useStoryImages";
+import { useRouter } from "next/router";
 
 const FirstDiv = styled.div`
   margin-top: 22px;
@@ -128,8 +129,16 @@ const RetryButton = styled.button`
 `;
 
 export default function Home() {
+  const router = useRouter();
+  const [initialKeyword, setInitialKeyword] = useState("");
   const [keyword, setKeyword] = useState("");
   const [age, setAge] = useState("");
+
+  useEffect(() => {
+    if (router.isReady && router.query.keyword) {
+      setInitialKeyword(String(router.query.keyword));
+    }
+  }, [router.isReady, router.query.keyword]);
   const [result, setResult] = useState<IResult>();
   const [resetPage, setResetPage] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -392,6 +401,7 @@ export default function Home() {
               onSendKw={handleKw}
               resetPage={resetPage}
               result={result}
+              initialKeyword={initialKeyword}
             />
             <ThirdPage
               onSendOption={handleOption}
