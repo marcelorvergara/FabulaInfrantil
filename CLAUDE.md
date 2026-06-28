@@ -147,6 +147,22 @@ To add future consent-gated scripts, follow the same pattern: render inside `{co
 
 ---
 
+## Google Ads — Keyword Pre-fill (Sitelinks)
+
+Sitelinks for the **Família** audience segment use `?keyword=` to pre-fill the story theme on landing, giving users a faster path to story creation.
+
+| Sitelink | URL |
+|---|---|
+| Conto para Seu Filho | `/?keyword=filho` |
+| Hora de Dormir | `/?keyword=sono` |
+| Fábula com Moral | `/?keyword=amizade` |
+| Crie com Seu Filho | `/?keyword=família` |
+| Presente Criativo | `/?keyword=presente` |
+
+**How it works:** `pages/index.tsx` reads `router.query.keyword` (once `router.isReady`) and sets `initialKeyword` state, which is passed as a prop to `KeywordPage`. `KeywordPage` syncs it into the `kw` input via `useEffect`. Reset clears the pre-fill.
+
+---
+
 ## Environment Variables
 
 ```
