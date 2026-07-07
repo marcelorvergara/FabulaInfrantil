@@ -7,6 +7,8 @@ dotenv.config();
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
+export const GENERATE_MODEL = "gpt-4o-mini";
+
 async function generate(input: IBody, kw: string, age: string, hero?: string) {
   const heroLine = hero ? ` O nome do personagem principal é ${hero}.` : "";
   const instructions = `
@@ -29,7 +31,7 @@ async function generate(input: IBody, kw: string, age: string, hero?: string) {
   for (let retries = 0; retries < maxRetries; retries++) {
     try {
       return await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: GENERATE_MODEL,
         messages: input.messages,
         temperature: input.temperature,
       });

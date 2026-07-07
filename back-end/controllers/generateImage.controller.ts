@@ -3,6 +3,8 @@ import { Storage } from "@google-cloud/storage";
 import { randomUUID } from "crypto";
 import GenerateImageService from "../services/generateImage.service";
 import axios from "axios";
+import LlmTelemetryRepo from "../repository/llmTelemetry.repo";
+import { calcImageCostUsd } from "../utils/llmPricing";
 
 const storage = new Storage({
   projectId: "generate-380122",
@@ -10,10 +12,47 @@ const storage = new Storage({
 });
 const bucket = storage.bucket("images-gen");
 
-async function generateImage(req: Request, res: Response, next: NextFunction) {
-  try {
-    const falUrl = await GenerateImageService.generate(req.body);
+const IMAGE_MODEL = "fal-ai/flux/schnell";
 
+function logTelemetry(entry: {
+  latencyMs: number;
+  success: boolean;
+  errorMessage: string | null;
+}) {
+  LlmTelemetryRepo.logTelemetry({
+    occurred_at: new Date(),
+    endpoint: "/generateImage",
+    model: IMAGE_MODEL,
+    latency_ms: entry.latencyMs,
+    input_tokens: 0,
+    output_tokens: 0,
+    cost_usd: entry.success ? calcImageCostUsd() : 0,
+    success: entry.success,
+    error_message: entry.errorMessage,
+  }).catch((err) => console.error("llm telemetry write failed", err));
+}
+
+async function generateImage(req: Request, res: Response, next: NextFunction) {
+  const startTime = new Date().getTime();
+  let falUrl: string;
+  try {
+    falUrl = await GenerateImageService.generate(req.body);
+    logTelemetry({
+      latencyMs: new Date().getTime() - startTime,
+      success: true,
+      errorMessage: null,
+    });
+  } catch (err) {
+    logTelemetry({
+      latencyMs: new Date().getTime() - startTime,
+      success: false,
+      errorMessage: err instanceof Error ? err.message : String(err),
+    });
+    console.log(err);
+    return next(err);
+  }
+
+  try {
     const download = await axios.get<Buffer>(falUrl, {
       responseType: "arraybuffer",
     });

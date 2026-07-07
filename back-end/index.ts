@@ -4,6 +4,7 @@ import generateRoute from "./routes/generate.route";
 import cors from "cors";
 import generateImageRoute from "./routes/generateImage.route";
 import shareStory from "./routes/shareStory.route";
+import internalRoute from "./routes/internal.route";
 import favicon from "serve-favicon";
 import path from "path";
 
@@ -52,7 +53,8 @@ app.use(function (req, res, next) {
   if (
     isOriginAllowed ||
     req.url.startsWith("/shareStory") ||
-    req.url.startsWith("/favicon.ico")
+    req.url.startsWith("/favicon.ico") ||
+    req.url.startsWith("/internal")
   ) {
     next();
   } else {
@@ -72,6 +74,7 @@ app.use(function (req, res, next) {
 app.use("/generate", generateRoute);
 app.use("/generateImage", generateImageRoute);
 app.use("/shareStory", shareStory);
+app.use("/internal", internalRoute);
 app.use(express.static("public"));
 
 // Favicon

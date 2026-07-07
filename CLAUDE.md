@@ -9,9 +9,9 @@ AI-powered children's storytelling platform. Live at **https://fabulainfantil.co
 ## Architecture
 
 ```
-Frontend (Next.js/Vercel) → Backend (Express/App Engine) → OpenAI GPT-3.5-turbo
+Frontend (Next.js/Vercel) → Backend (Express/App Engine) → OpenAI GPT-4o-mini
                                                           → fal.ai Flux.1 Schnell (images)
-                                                          → Firestore (story cache)
+                                                          → Firestore (story cache + llm_telemetry)
                                                           → GCS bucket `images-gen` (images)
 ```
 
@@ -24,7 +24,7 @@ Frontend (Next.js/Vercel) → Backend (Express/App Engine) → OpenAI GPT-3.5-tu
 |---|---|
 | Runtime | Node.js + TypeScript |
 | Framework | Express · port 3005 |
-| AI Text | OpenAI GPT-3.5-turbo · `openai` SDK v6.44.0 |
+| AI Text | OpenAI GPT-4o-mini · `openai` SDK v6.44.0 |
 | AI Images | fal.ai `fal-ai/flux/schnell` · `square_hd` · ~3–5s |
 | Database | Google Cloud Firestore |
 | Storage | GCS bucket `images-gen` |
@@ -50,10 +50,11 @@ back-end/
 ├── controllers/
 │   ├── GenerateController.ts      # Story generation
 │   ├── GenerateImageController.ts # Image download → GCS upload
-│   └── ShareStoryController.ts    # Story sharing
+│   ├── ShareStoryController.ts    # Story sharing
+│   └── internal.controller.ts     # GET /internal/llm-metrics — 24h telemetry aggregates
 ├── services/                      # OpenAI + fal.ai calls, exponential backoff (5 retries)
-├── repository/                    # Firestore read/write
-├── utils/                         # SHA-256 hashing
+├── repository/                    # Firestore read/write, incl. llmTelemetry.repo.ts
+├── utils/                         # SHA-256 hashing, llmPricing.ts (cost-per-call estimates)
 └── public/                        # EJS template for share pages
 ```
 
@@ -89,11 +90,12 @@ front-end-2/
 
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/generate/:kw/:age` | GPT-3.5-turbo story (3-part, branching) |
+| `POST` | `/generate/:kw/:age` | GPT-4o-mini story (3-part, branching) |
 | `POST` | `/generateImage` | fal.ai image generation |
 | `POST` | `/shareStory` | Save story to Firestore → returns `storyId` |
 | `GET` | `/shareStory/:storyId/ready` | Returns `{ ready: bool }` — true once all 3 GCS images exist |
 | `GET` | `/shareStory/:storyId` | Retrieve + EJS-render shared story |
+| `GET` | `/internal/llm-metrics` | 24h telemetry aggregates; gated by `X-Internal-Key` header (see below) |
 
 ---
 
@@ -113,6 +115,21 @@ Image URL patterns:
 ```
 images-gen/temp/{uuid}.jpg            # temp (generated, not yet shared)
 images-gen/{storyId}/image-{1,2,3}.webp  # permanent (after share)
+```
+
+Firestore collection `llm_telemetry` (one doc per `/generate` or `/generateImage` call, written fire-and-forget — never awaited on the response path):
+```typescript
+interface ILlmTelemetry {
+  occurred_at: Date;
+  endpoint: string;        // "/generate" | "/generateImage"
+  model: string;           // "gpt-4o-mini" | "fal-ai/flux/schnell"
+  latency_ms: number;
+  input_tokens: number;    // 0 for image calls
+  output_tokens: number;   // 0 for image calls
+  cost_usd: number;        // gpt-4o-mini: token-based; image: flat fal.ai rate
+  success: boolean;
+  error_message: string | null;
+}
 ```
 
 ---
@@ -170,6 +187,7 @@ Sitelinks for the **Família** audience segment use `?keyword=` to pre-fill the 
 OPENAI_API_KEY          # OpenAI
 FAL_KEY                 # fal.ai
 GOOGLE_CLOUD_PROJECT    # GCP project
+INTERNAL_API_KEY        # Shared secret for GET /internal/llm-metrics (X-Internal-Key header)
 
 # Frontend
 NEXT_PUBLIC_BACKEND_SRV          # Backend base URL (e.g. http://localhost:3005)
@@ -180,8 +198,9 @@ NEXT_PUBLIC_GA4_TRACKING_ID      # Google Analytics 4 measurement ID
 
 ## CORS
 
-Allowed origins (`back-end/index.ts`): `localhost:3000`, `fabulainfantil.com`, `fabulainfantil.com.br`  
-Public (no restriction): `/shareStory/*`
+Allowed origins (`back-end/index.ts`): `localhost:3006` (dev, via `CLIENT_URL_DEV`), `fabulainfantil.com`, `fabulainfantil.com.br`  
+Public (no restriction): `/shareStory/*`  
+Origin-check bypassed (no browser `Origin` header expected — server-to-server): `/internal/*`, gated instead by the `X-Internal-Key` header
 
 ---
 
@@ -192,7 +211,7 @@ Public (no restriction): `/shareStory/*`
 | `ci.yml` | PR → `main` | `tsc --noEmit` + frontend build |
 | `deploy-backend.yml` | Push → `main` (back-end changes) | Compile TS → App Engine deploy |
 
-Secrets: `GCP_SA_KEY`, `OPENAI_API_KEY`, `FAL_KEY` — injected into `app.yaml` at deploy time (not committed).
+Secrets: `GCP_SA_KEY`, `OPENAI_API_KEY`, `FAL_KEY`, `INTERNAL_API_KEY` — injected into `app.yaml` at deploy time (not committed).
 
 Deployer SA: `fabula-deployer@generate-380122.iam.gserviceaccount.com`  
 Roles needed: `appengine.appAdmin`, `cloudbuild.builds.editor`, `storage.admin`, `iam.serviceAccountUser` on `generate-380122@appspot.gserviceaccount.com`

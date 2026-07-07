@@ -27,7 +27,7 @@ graph TD
     A["<b>User Browser</b><br/>Next.js 13 · React 18 · styled-components<br/>3D book-flip CSS animation"]
     B["<b>Express / Node.js</b><br/>TypeScript · Port 3005<br/>Google Cloud App Engine (nodejs22)"]
     C["<b>OpenAI API</b><br/>GPT-4o mini<br/>gpt-image-1"]
-    D["<b>Google Firestore</b><br/>(story cache)<br/>SHA-256 doc IDs"]
+    D["<b>Google Firestore</b><br/>(story cache +<br/>llm_telemetry)<br/>SHA-256 doc IDs"]
     E["<b>Google Cloud Storage</b><br/>bucket: images-gen<br/>WebP illustrations"]
 
     A -- "fetch (REST)" --> B
@@ -71,6 +71,7 @@ graph TD
 | `POST` | `/generateImage` | Generate illustration (gpt-image-1 → GCS) |
 | `POST` | `/shareStory` | Save story to Firestore, return `storyId` |
 | `GET` | `/shareStory/:storyId` | Retrieve shared story (EJS, OG tags) |
+| `GET` | `/internal/llm-metrics` | 24h LLM telemetry aggregates — gated by `X-Internal-Key` header, polled by `monitoring-links` |
 
 **Age groups:** `0_2`, `3_5`, `6_8`, `9_11`, `12_14`
 
@@ -126,7 +127,8 @@ Create `back-end/.env`:
 OPENAI_API_KEY=sk-...
 APP_CRED=./path/to/gcp-service-account.json
 GOOGLE_CLOUD_PROJECT=your-gcp-project-id
-FONTEND_SRV=http://localhost:3000
+FONTEND_SRV=http://localhost:3006
+INTERNAL_API_KEY=<shared secret for GET /internal/llm-metrics>
 ```
 
 ```bash
@@ -148,7 +150,7 @@ NEXT_PUBLIC_GA_ID=G-XXXXXXXXXX
 ```
 
 ```bash
-npm run dev        # Next.js dev server on :3000
+npm run dev        # Next.js dev server on :3006
 ```
 
 ---
@@ -218,10 +220,11 @@ Push to the connected GitHub repo — Vercel deploys automatically.
 
 | Origin | Access |
 |---|---|
-| `http://localhost:3000` | All routes |
+| `http://localhost:3006` | All routes |
 | `https://fabulainfantil.com` | All routes |
 | `https://fabulainfantil.com.br` | All routes |
 | `*` | `/shareStory/*` (public, for social crawlers) |
+| `*` (no `Origin` header) | `/internal/*` (server-to-server; gated by `X-Internal-Key` header instead of CORS) |
 
 ---
 
@@ -233,5 +236,6 @@ Push to the connected GitHub repo — Vercel deploys automatically.
 | `APP_CRED` | Backend | Path to GCP service account JSON |
 | `GOOGLE_CLOUD_PROJECT` | Backend | GCP project ID |
 | `FONTEND_SRV` | Backend | Frontend origin URL |
+| `INTERNAL_API_KEY` | Backend | Shared secret checked against the `X-Internal-Key` header on `GET /internal/llm-metrics` |
 | `NEXT_PUBLIC_BACKEND_SRV` | Frontend | Backend base URL |
 | `NEXT_PUBLIC_GA_ID` | Frontend | Google Analytics 4 measurement ID |
