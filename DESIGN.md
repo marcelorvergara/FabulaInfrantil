@@ -115,7 +115,7 @@ https://story.fabulainfantil.com/shareStory/{storyId}
 ## Known Issues & Refactoring Backlog
 
 1. ~~**OpenAI SDK v3.2.1** — Very old. Should upgrade to v4+/v5+.~~ **Resolved** — backend already uses `openai` v6.44.0.
-2. **Next.js 13 `/pages` router** — Legacy router. Candidate for App Router migration. *(Deferred)*
+2. **`/pages` router** (Next.js 15.5.19) — Legacy router, framework itself is current. Candidate for App Router migration. *(Deferred)*
 3. ~~**Race condition in sharing** — Frontend waits hardcoded 1.5s before opening shared URL; should use a callback/polling.~~ **Resolved** — replaced with `/shareStory/:storyId/ready` polling endpoint.
 4. ~~**No user-facing error for image failures** — Image errors are silent; only placeholder is shown.~~ **Resolved** — `useStoryImages` hook surfaces per-image error state to components.
 5. ~~**Env var typo** — `FONTEND_SRV` in backend should be `FRONTEND_SRV`.~~ **Resolved** — unused variable removed from `front-end-2/.env.local`.

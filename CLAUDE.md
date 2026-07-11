@@ -33,7 +33,7 @@ Frontend (Next.js/Vercel) → Backend (Express/App Engine) → OpenAI GPT-4o-min
 ### Frontend (`/front-end-2/`)
 | Concern | Choice |
 |---|---|
-| Framework | Next.js 13.2.3 · legacy `/pages` router |
+| Framework | Next.js 15.5.19 · `/pages` router |
 | UI | React 18 + styled-components |
 | Analytics | Vercel Analytics + Google Ads (`AW-1032977240`) |
 | Cookie consent | `CookieBanner.tsx` — consent stored in `localStorage` key `cookie_consent`; Google Consent Mode v2 (default denied, cookieless pings, upgraded to granted on acceptance) — LGPD |
@@ -64,6 +64,7 @@ front-end-2/
 ├── pages/_document.tsx             # Custom Document; hosts the beforeInteractive Consent Mode v2 default-denied snippet (must run before gtag.js)
 ├── pages/_app.tsx                  # Loads gtag.js unconditionally; fires consent update on accept/mount-if-already-accepted
 ├── pages/index.tsx                # App shell; orchestrates state and routing between pages; reads ?keyword= param → passes to KeywordPage; fires story_started/share_clicked/story_completed gtag events
+├── pages/historia-para-dormir.tsx  # Static SEO/marketing landing page (bedtime theme); no book-flow state, CTA → /?keyword=sono; see "SEO Landing Pages" below
 ├── hooks/
 │   └── useStoryImages.ts          # Image state + generation logic (firstImage/secondImage/thirdImage, loading, errors)
 ├── components/
@@ -204,6 +205,21 @@ Sitelinks for the **Família** audience segment use `?keyword=` to pre-fill the 
 | Presente Criativo | `/?keyword=presente` |
 
 **How it works:** `pages/index.tsx` reads `router.query.keyword` (once `router.isReady`) and sets `initialKeyword` state, which is passed as a prop to `KeywordPage`. `KeywordPage` syncs it into the `kw` input via `useEffect`. Reset clears the pre-fill.
+
+---
+
+## SEO Landing Pages
+
+Standalone, statically-generated marketing pages that target a specific theme/keyword for organic search — separate from the `?keyword=` sitelink pre-fill above (which serves paid traffic landing directly on the book flow). Pattern established by [historia-para-dormir.tsx](front-end-2/pages/historia-para-dormir.tsx) (bedtime/"sono" theme):
+
+- Single file under `pages/`, no book-flow state — just hero + benefits + ~300-word indexable copy + FAQ.
+- CTA is a plain `next/link` to `/?keyword=<theme>`, reusing the existing pre-fill mechanism (never reimplement it).
+- Own `<Head>` (title/description/canonical/OG/FAQPage JSON-LD) — safe to override `_app.tsx`'s defaults per-page; Next dedupes by tag and the page's own `<Head>` wins.
+- Styled-components only; reuse the navy/gold brand palette (`#1a1a5e`/`#0d0d30`/`#ffd700`), variant the tone (e.g. darker/nocturnal for bedtime) rather than introducing a new palette.
+- **Gotcha**: don't interpolate a `keyframes` result into a plain template literal or inline `style` — styled-components only injects the `@keyframes` rule when the animation is used inside a tagged `styled`/`css` template. Doing it in an untagged string throws at prerender time (`git.io/JUIaE#12`) and breaks the static build.
+- Verify with `npx tsc --noEmit`, `npm run build` (confirm `○ (Static)` in the route summary — no `getServerSideProps`/dynamic data means it should always be SSG), and a Playwright screenshot at mobile + desktop widths.
+
+To add another theme page, copy this pattern with a new keyword/route (e.g. `/historia-de-aniversario` → `/?keyword=aniversário`).
 
 ---
 
