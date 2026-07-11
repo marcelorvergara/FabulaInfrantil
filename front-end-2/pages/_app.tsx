@@ -7,6 +7,13 @@ import CookieBanner from "../components/CookieBanner";
 
 const CONSENT_KEY = "cookie_consent";
 
+const GRANTED_CONSENT = {
+  ad_storage: "granted",
+  analytics_storage: "granted",
+  ad_user_data: "granted",
+  ad_personalization: "granted",
+};
+
 const schema = {
   "@context": "https://schema.org",
   "@type": "WebSite",
@@ -14,17 +21,25 @@ const schema = {
   url: "https://www.fabulainfantil.com",
 };
 
+function grantConsent() {
+  if (typeof (window as any).gtag === "function") {
+    (window as any).gtag("consent", "update", GRANTED_CONSENT);
+  }
+}
+
 export default function App({ Component, pageProps }: AppProps) {
   const [consent, setConsent] = useState<boolean | null>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem(CONSENT_KEY);
     if (stored !== null) setConsent(stored === "true");
+    if (stored === "true") grantConsent();
   }, []);
 
   const handleConsent = (accepted: boolean) => {
     localStorage.setItem(CONSENT_KEY, String(accepted));
     setConsent(accepted);
+    if (accepted) grantConsent();
   };
 
   return (
@@ -47,17 +62,13 @@ export default function App({ Component, pageProps }: AppProps) {
 
       <Analytics />
 
-      {consent === true && (
-        <>
-          <Script
-            src="https://www.googletagmanager.com/gtag/js?id=AW-1032977240"
-            strategy="afterInteractive"
-          />
-          <Script id="google-ads-init" strategy="afterInteractive">
-            {`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','AW-1032977240');`}
-          </Script>
-        </>
-      )}
+      <Script
+        src="https://www.googletagmanager.com/gtag/js?id=AW-1032977240"
+        strategy="afterInteractive"
+      />
+      <Script id="google-ads-init" strategy="afterInteractive">
+        {`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','AW-1032977240');`}
+      </Script>
 
       {consent === null && <CookieBanner onConsent={handleConsent} />}
     </>

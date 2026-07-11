@@ -56,9 +56,9 @@ export default function CookieBanner({ onConsent }: Props) {
   return (
     <Banner role="region" aria-label="Aviso de cookies">
       <Text>
-        Usamos cookies para analisar o desempenho do site e melhorar sua
-        experiência. Ao aceitar, você concorda com o uso de cookies de
-        rastreamento.
+        Por padrão, medimos visitas de forma anônima e sem cookies. Ao
+        aceitar, habilitamos cookies para métricas de anúncios e
+        personalização.
       </Text>
       <Buttons>
         <Btn onClick={() => onConsent(false)}>Recusar</Btn>
