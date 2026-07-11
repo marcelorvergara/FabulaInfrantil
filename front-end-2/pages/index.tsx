@@ -128,6 +128,12 @@ const RetryButton = styled.button`
   &:active { transform: translateY(0); }
 `;
 
+function fireGtagEvent(eventName: string, params?: Record<string, unknown>) {
+  if (typeof (window as any).gtag === "function") {
+    (window as any).gtag("event", eventName, params);
+  }
+}
+
 export default function Home() {
   const router = useRouter();
   const [initialKeyword, setInitialKeyword] = useState("");
@@ -172,6 +178,7 @@ export default function Home() {
   const handleAge = async (ageStr: string) => {
     setAge(ageStr);
     setErrorMessage(null);
+    fireGtagEvent("story_started");
 
     try {
       setIsLoading(true);
@@ -335,14 +342,15 @@ export default function Home() {
   }, [resetPage]);
 
   useEffect(() => {
-    if (currentPart === 3 && typeof (window as any).gtag === 'function') {
-      (window as any).gtag('event', 'conversion', {
-        send_to: 'AW-1032977240/i9TXCI68psccENj2x-wD',
+    if (currentPart === 3) {
+      fireGtagEvent("conversion", {
+        send_to: "AW-1032977240/i9TXCI68psccENj2x-wD",
       });
     }
   }, [currentPart]);
 
   async function shareStory() {
+    fireGtagEvent("share_clicked");
     setShareStatus("sharing");
     const storyId = await shareStoryHelper(
       story,
