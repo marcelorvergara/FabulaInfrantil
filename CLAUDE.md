@@ -36,7 +36,7 @@ Frontend (Next.js/Vercel) → Backend (Express/App Engine) → OpenAI GPT-4o-min
 | Framework | Next.js 13.2.3 · legacy `/pages` router |
 | UI | React 18 + styled-components |
 | Analytics | Vercel Analytics + Google Ads (`AW-1032977240`) |
-| Cookie consent | `CookieBanner.tsx` — consent stored in `localStorage` key `cookie_consent`; Google Ads script loads only after acceptance (LGPD) |
+| Cookie consent | `CookieBanner.tsx` — consent stored in `localStorage` key `cookie_consent`; Google Consent Mode v2 (default denied, cookieless pings, upgraded to granted on acceptance) — LGPD |
 
 ---
 
@@ -61,7 +61,9 @@ back-end/
 ### Frontend
 ```
 front-end-2/
-├── pages/index.tsx                # App shell; orchestrates state and routing between pages; reads ?keyword= param → passes to KeywordPage
+├── pages/_document.tsx             # Custom Document; hosts the beforeInteractive Consent Mode v2 default-denied snippet (must run before gtag.js)
+├── pages/_app.tsx                  # Loads gtag.js unconditionally; fires consent update on accept/mount-if-already-accepted
+├── pages/index.tsx                # App shell; orchestrates state and routing between pages; reads ?keyword= param → passes to KeywordPage; fires story_started/share_clicked/story_completed gtag events
 ├── hooks/
 │   └── useStoryImages.ts          # Image state + generation logic (firstImage/secondImage/thirdImage, loading, errors)
 ├── components/
@@ -77,7 +79,7 @@ front-end-2/
 │   ├── SpinnerAnimation.tsx       # Loading with Portuguese phrases
 │   ├── Modal.tsx                  # Fullscreen image viewer
 │   ├── TTSButton.tsx              # Text-to-speech on story pages
-│   └── CookieBanner.tsx           # z-index 9999; fixed bottom; shows until user accepts/declines; LGPD consent gate for Google Ads
+│   └── CookieBanner.tsx           # z-index 9999; fixed bottom; shows until user accepts/declines; upgrades Consent Mode v2 signals to granted on accept
 └── helpers/
     ├── fetchHelper.ts             # getText, generateImage, shareStoryHelper, pollShareReady
     ├── generalFunctions.ts        # getFirst60Percent (trims image prompts)
@@ -152,15 +154,40 @@ interface ILlmTelemetry {
 
 ## Tracking & Consent
 
-Google Ads tag `AW-1032977240` is loaded via `next/script` (`strategy="afterInteractive"`) in `pages/_app.tsx`, **only when the user has accepted cookies**.
+Google Ads tag `AW-1032977240` uses **Google Consent Mode v2**. `gtag.js` and `gtag('config', ...)` load unconditionally via `next/script` (`strategy="afterInteractive"`) in `pages/_app.tsx` — they are no longer gated behind cookie acceptance. What changes with consent is the *signal* gtag sends, not whether it loads.
+
+Consent default (`pages/_document.tsx`, `strategy="beforeInteractive"` — must run before `gtag.js`, so it lives in `_document`, not `_app`):
+```js
+gtag('consent', 'default', {
+  ad_storage: 'denied', analytics_storage: 'denied',
+  ad_user_data: 'denied', ad_personalization: 'denied'
+});
+gtag('set', 'ads_data_redaction', true);
+gtag('set', 'url_passthrough', true);
+```
+With all signals denied, gtag sends cookieless pings only (no `_gcl_*`/`_ga` cookies written); `ads_data_redaction` strips ad-click identifiers, and `url_passthrough` preserves `gclid` attribution via URL instead of cookies. Google can still model conversions from this traffic — this is what fixed pre-consent conversions being invisible.
 
 Consent flow (`_app.tsx`):
-1. On mount, read `localStorage.getItem("cookie_consent")` → `null` (first visit) | `"true"` | `"false"`
-2. `null` → render `<CookieBanner>` at bottom of page
-3. User clicks **Aceitar** → store `"true"`, mount Google Ads `<Script>` tags
-4. User clicks **Recusar** → store `"false"`, no tracking scripts load
+1. On mount, read `localStorage.getItem("cookie_consent")` → `null` (first visit) | `"true"` | `"false"`. If `"true"`, immediately fire `gtag('consent', 'update', {...granted})`.
+2. `null` → render `<CookieBanner>` at bottom of page.
+3. User clicks **Aceitar** → store `"true"`, fire `gtag('consent', 'update', {...granted})` (cookies now written, full attribution).
+4. User clicks **Recusar** → store `"false"`, no update call — signals stay denied (cookieless measurement continues).
 
-To add future consent-gated scripts, follow the same pattern: render inside `{consent === true && …}`.
+Verifying the boundary holds (Tag Assistant / DevTools, against the deployed site — not meaningful in local dev):
+- Fresh incognito, don't touch the banner → Application → Cookies: no `_gcl_au`/`_ga`/`_gid` on `fabulainfantil.com`.
+- Tag Assistant `gcd` param reads denied-by-default; `consentStatus.default` is `true`.
+- Click Aceitar → `gcd` flips to granted-via-update; cookies now appear.
+- Trigger `story_completed` in a fresh (no-consent) session → the conversion ping still fires, cookieless.
+
+### Conversion events (`pages/index.tsx`)
+Fired via a local `fireGtagEvent(name, params?)` helper (guards on `window.gtag` existing — protects against script-blocked browsers, mostly vestigial now that gtag always loads):
+| Event | Trigger | gtag call |
+|---|---|---|
+| `story_started` | `handleAge` — first `/generate` call is triggered | `gtag('event', 'story_started')` |
+| `share_clicked` | `shareStory()` — BackCover share button | `gtag('event', 'share_clicked')` |
+| `story_completed` | `currentPart === 3` (primary conversion) | `gtag('event', 'conversion', { send_to: 'AW-1032977240/i9TXCI68psccENj2x-wD' })` |
+
+`story_started`/`share_clicked` are custom events, not conversion actions with a `send_to` label yet — set those up in Google Ads → Metas → Conversões → Nova ação de conversão → **Google tag**, which detects them from the existing tag after they've fired a few times in production.
 
 ---
 
