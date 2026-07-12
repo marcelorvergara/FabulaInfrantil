@@ -135,6 +135,18 @@ interface ILlmTelemetry {
 }
 ```
 
+`GET /internal/llm-metrics` (`internal.controller.ts` → `LlmTelemetryRepo.getAggregates24h()`) returns:
+```typescript
+interface ILlmMetricsAggregate {
+  requests_24h: number;
+  avg_latency_ms: number | null;   // null when requests_24h === 0 — avg over zero samples is undefined, not 0
+  tokens_24h: number;
+  cost_usd_24h: number;
+  error_rate_pct: number | null;   // null when requests_24h === 0, same reasoning
+}
+```
+`requests_24h`, `tokens_24h`, `cost_usd_24h` are always numbers — 0 is correct for "no activity." Only the two averaged/derived fields go `null`, so the public `llm_health` status block (polled by Monitoring Links) can distinguish "no data this window" from "0ms avg latency, 0% errors" (which would misleadingly read as "responds instantly, never fails").
+
 ---
 
 ## Z-Index Quick Reference
