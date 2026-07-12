@@ -12,8 +12,8 @@ export interface ILlmTelemetry {
 
 export interface ILlmMetricsAggregate {
   requests_24h: number;
-  avg_latency_ms: number;
+  avg_latency_ms: number | null;
   tokens_24h: number;
   cost_usd_24h: number;
-  error_rate_pct: number;
+  error_rate_pct: number | null;
 }

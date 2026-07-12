@@ -40,10 +40,10 @@ async function getAggregates24h(): Promise<ILlmMetricsAggregate> {
 
   return {
     requests_24h,
-    avg_latency_ms: requests_24h > 0 ? totalLatencyMs / requests_24h : 0,
+    avg_latency_ms: requests_24h > 0 ? totalLatencyMs / requests_24h : null,
     tokens_24h,
     cost_usd_24h,
-    error_rate_pct: requests_24h > 0 ? (errorCount / requests_24h) * 100 : 0,
+    error_rate_pct: requests_24h > 0 ? (errorCount / requests_24h) * 100 : null,
   };
 }
 
