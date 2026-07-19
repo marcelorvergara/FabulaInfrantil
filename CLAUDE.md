@@ -65,6 +65,7 @@ front-end-2/
 ├── pages/_app.tsx                  # Loads gtag.js unconditionally; fires consent update on accept/mount-if-already-accepted
 ├── pages/index.tsx                # App shell; orchestrates state and routing between pages; reads ?keyword= param → passes to KeywordPage; fires story_started/share_clicked/story_completed gtag events
 ├── pages/historia-para-dormir.tsx  # Static SEO/marketing landing page (bedtime theme); no book-flow state, CTA → /?keyword=sono; see "SEO Landing Pages" below
+├── pages/modo-soninho.tsx          # Passive bedtime audio MVP (beta, noindex); story picker + SleepNarrationPlayer; see "Modo Soninho" below
 ├── hooks/
 │   └── useStoryImages.ts          # Image state + generation logic (firstImage/secondImage/thirdImage, loading, errors)
 ├── components/
@@ -79,8 +80,14 @@ front-end-2/
 │   ├── LeftPage.tsx               # Illustration panel (only when currentPart > 0); shows error state per image
 │   ├── SpinnerAnimation.tsx       # Loading with Portuguese phrases
 │   ├── Modal.tsx                  # Fullscreen image viewer
-│   ├── TTSButton.tsx              # Text-to-speech on story pages
+│   ├── TTSButton.tsx              # Text-to-speech toggle on book-flow story pages (single-utterance, native speechSynthesis)
+│   ├── SleepNarrationPlayer.tsx   # Per-paragraph speechSynthesis player for /modo-soninho — separate from TTSButton, see "Modo Soninho" below
 │   └── CookieBanner.tsx           # z-index 9999; fixed bottom; shows until user accepts/declines; upgrades Consent Mode v2 signals to granted on accept
+├── data/
+│   └── sleepStories.ts            # Fixed library of pt-BR bedtime stories (ISleepStory[]) for /modo-soninho — not GPT-generated, repetition is deliberate
+├── interfaces/
+│   ├── IResult.ts                 # IMessage / IResult — story generation response shape
+│   └── ISleepStory.ts             # slug/title/teaser/estimatedMinutes/paragraphs shape for sleepStories.ts
 └── helpers/
     ├── fetchHelper.ts             # getText, generateImage, shareStoryHelper, pollShareReady
     ├── generalFunctions.ts        # getFirst60Percent (trims image prompts)
@@ -202,6 +209,17 @@ Fired via a local `fireGtagEvent(name, params?)` helper (guards on `window.gtag`
 
 `story_started`/`share_clicked` are custom events, not conversion actions with a `send_to` label yet — set those up in Google Ads → Metas → Conversões → Nova ação de conversão → **Google tag**, which detects them from the existing tag after they've fired a few times in production.
 
+### Modo Soninho funnel events (`historia-para-dormir.tsx` + `SleepNarrationPlayer.tsx`)
+Each file has its own local copy of `fireGtagEvent` (intentional duplication, same as `pages/index.tsx` — not a shared helper in this codebase):
+| Event | Trigger | gtag call |
+|---|---|---|
+| `sleep_mode_clicked` | Secondary CTA click on `historia-para-dormir.tsx` → `/modo-soninho` | `gtag('event', 'sleep_mode_clicked')` |
+| `sleep_story_started` | First Play tap for a story in `SleepNarrationPlayer` | `gtag('event', 'sleep_story_started', { story: slug })` |
+| `sleep_story_progress` | Halfway paragraph reached, and again (with `listened_minutes`) on manual Stop | `gtag('event', 'sleep_story_progress', { story: slug, listened_minutes? })` |
+| `sleep_story_completed` | Natural end of the last paragraph only (not on manual Stop) | `gtag('event', 'sleep_story_completed', { story: slug })` |
+
+These exist because `sleep_mode_clicked` alone only proves the CTA is noticed — `started`/`progress`/`completed` are what actually validate the listening-behavior hypothesis the MVP is testing.
+
 ---
 
 ## Google Ads — Keyword Pre-fill (Sitelinks)
@@ -232,6 +250,29 @@ Standalone, statically-generated marketing pages that target a specific theme/ke
 - Verify with `npx tsc --noEmit`, `npm run build` (confirm `○ (Static)` in the route summary — no `getServerSideProps`/dynamic data means it should always be SSG), and a Playwright screenshot at mobile + desktop widths.
 
 To add another theme page, copy this pattern with a new keyword/route (e.g. `/historia-de-aniversario` → `/?keyword=aniversário`).
+
+---
+
+## Modo Soninho — Bedtime Audio MVP
+
+Passive, audio-first "bedtime story" experiment at `/modo-soninho` — a deliberate departure from the branching-book flow, testing the hypothesis that a sleep product wants passive listening and repetition, not screen interactivity and novelty. Linked from [historia-para-dormir.tsx](front-end-2/pages/historia-para-dormir.tsx) as a subdued secondary CTA (`🧪 Experimente o Modo Soninho (beta)`) placed under the primary CTA — the primary CTA/copy is untouched and stays the priority path until this MVP shows real return-visit behavior.
+
+**Deliberate MVP scope (revisit only once the funnel events above show demand):**
+- Browser-native `speechSynthesis`, not cloud TTS or LiteRT.js/on-device ML — zero infra cost to test the format first.
+- Fixed library of 4 stories ([data/sleepStories.ts](front-end-2/data/sleepStories.ts)) — repetition is the point for a sleep product, not a limitation; not GPT-generated per session.
+- No PWA / Service Worker / offline caching yet.
+- `<meta name="robots" content="noindex, follow">` on the page — unlike `historia-para-dormir.tsx`'s `index, follow` — since this is an unvalidated experiment that may be reworked or pulled.
+
+**[SleepNarrationPlayer.tsx](front-end-2/components/SleepNarrationPlayer.tsx)** is a new component, deliberately not a modification of `TTSButton.tsx` (which is live in the book flow's `ThirdPage`/`FourthPage`/`LastPage` — changing its behavior risked regressing it). It speaks one `SpeechSynthesisUtterance` per paragraph, chained via `onend`, rather than one utterance for the whole story — this is what makes a real mid-story progress indicator possible. Tuned for bedtime pacing: `rate: 0.85`, `pitch: 0.9`, `lang: "pt-BR"`.
+
+Known `speechSynthesis` landmines, handled defensively rather than left for a follow-up bugfix:
+- The active utterance is held in a `useRef`, not a local variable — Chrome has a long-standing bug where an utterance that goes out of scope mid-speech stops audio silently and never fires `onend`, wedging the paragraph chain.
+- `pause()/resume()` is flaky specifically on Android Chrome (`resume()` can permanently wedge the engine). A ~1s watchdog after resume checks `speechSynthesis.paused`; if still stuck, it falls back to `cancel()` + re-`speak()` the current paragraph from its start.
+- Per-paragraph utterances also sidestep a separate Chrome bug that cuts off long single utterances around ~15s.
+
+**Gotcha found while building this**: custom-styled `<button>`/`<select>` elements need `appearance: none` (`-webkit-appearance: none`) explicitly set, or native browser button chrome (light gray) paints over the intended dark/subtle `background` — surfaced via Playwright screenshot testing of the story-picker cards, invisible in casual review since the effect is subtle at small icon-button sizes but glaring on larger card-style buttons.
+
+**Known limitation (pre-existing, app-wide, not introduced here)**: [_document.tsx](front-end-2/pages/_document.tsx) has no `ServerStyleSheet` extraction for styled-components, so CSS injects client-side only — there's a brief unstyled flash on first paint before hydration completes, on every page in this app, not just this one. Surfaced during headless screenshot verification of this page (screenshots taken at `load` before hydration finished the first time showed raw unstyled/native HTML); resolves once React hydrates. Worth fixing app-wide at some point, but out of scope for this feature.
 
 ---
 

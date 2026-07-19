@@ -79,6 +79,20 @@ The page rotates around the left (spine) edge and visually moves into LeftSide. 
 
 ---
 
+## Modo Soninho — Passive Audio UX (beta)
+
+A second, deliberately separate UX track from the 3D book-flip flow above: `/modo-soninho` tests whether bedtime wants passive listening instead of screen interactivity. No book-flip, no illustrations, no branching choices.
+
+1. User arrives via the secondary CTA on `historia-para-dormir.tsx` (primary CTA still goes to the interactive book flow)
+2. **Story picker**: a grid of 4 fixed story cards (title, one-line teaser, estimated minutes) — no generation step, no keyword/age input
+3. Tapping a card opens the **narration player**: large calm paragraph text, a dot-based progress row, Play/Pause/Stop, and a sleep-timer select (5/15/30 min or "até o fim")
+4. Narration is the browser's native voice (`speechSynthesis`), read one paragraph at a time so playback position is trackable; no images, no page-flip animation, no typewriter effect — the UI is intentionally dim and static
+5. "‹ Voltar" returns to the picker; a footer link offers the personalized/interactive story as an alternative
+
+This flow has no shared state with `index.tsx`'s book-flow (`currentPart`, z-index stack, etc.) — it's a fully independent page tree. See [CLAUDE.md § Modo Soninho](CLAUDE.md#modo-soninho--bedtime-audio-mvp) for the technical/architecture rationale (why browser TTS over cloud, why a fixed story library, the `speechSynthesis` reliability workarounds).
+
+---
+
 ## Image Generation Pipeline
 
 Images are generated via **fal.ai Flux.1 Schnell** (`fal-ai/flux/schnell`), which replaced the deprecated DALL-E 2 endpoint (removed Feb 2025).
@@ -121,3 +135,4 @@ https://story.fabulainfantil.com/shareStory/{storyId}
 5. ~~**Env var typo** — `FONTEND_SRV` in backend should be `FRONTEND_SRV`.~~ **Resolved** — unused variable removed from `front-end-2/.env.local`.
 6. ~~**Large `index.tsx`** — All app state in one file; needs decomposition into context/hooks.~~ **Resolved** — image state + generation logic extracted to `hooks/useStoryImages.ts`.
 7. **EJS for social sharing** — Share page is an EJS template on the backend; could be a Next.js page instead. *(Deferred)*
+8. **No SSR style extraction for styled-components** — `_document.tsx` doesn't collect styles via `ServerStyleSheet`, so CSS injects client-side only; every page has a brief unstyled flash on first paint before hydration. Surfaced while building/screenshot-testing `/modo-soninho` (raw HTML has no `<style>` tag, only a `<noscript data-n-css="">` placeholder), but pre-existing and app-wide, not specific to that page. *(Deferred)*

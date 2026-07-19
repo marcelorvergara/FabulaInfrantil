@@ -39,6 +39,12 @@ const faqSchema = {
   })),
 };
 
+function fireGtagEvent(eventName: string, params?: Record<string, unknown>) {
+  if (typeof (window as any).gtag === "function") {
+    (window as any).gtag("event", eventName, params);
+  }
+}
+
 const twinkle = keyframes`
   0%, 100% { opacity: 0.25; }
   50% { opacity: 0.85; }
@@ -120,6 +126,24 @@ const CTALink = styled(Link)`
 
   &:hover {
     transform: translateY(-2px);
+  }
+`;
+
+const SecondaryCTALink = styled(Link)`
+  display: inline-block;
+  margin-top: 14px;
+  padding: 10px 22px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50px;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.85rem;
+  text-decoration: none;
+  transition: border-color 0.15s, color 0.15s;
+
+  &:hover {
+    border-color: rgba(255, 215, 0, 0.6);
+    color: #ffd700;
   }
 `;
 
@@ -306,6 +330,12 @@ export default function HistoriaParaDormir() {
             Crie uma história de ninar única em 1 minuto — grátis
           </Subtitle>
           <CTALink href="/?keyword=sono">Criar história de ninar ✨</CTALink>
+          <SecondaryCTALink
+            href="/modo-soninho"
+            onClick={() => fireGtagEvent("sleep_mode_clicked")}
+          >
+            🧪 Experimente o Modo Soninho (beta)
+          </SecondaryCTALink>
         </Hero>
 
         <Benefits>
