@@ -74,7 +74,7 @@ front-end-2/
 ├── hooks/
 │   └── useStoryImages.ts          # Image state + generation logic (firstImage/secondImage/thirdImage, loading, errors)
 ├── components/
-│   ├── Cover.tsx                  # z-index 8; pointer-events:none after flip
+│   ├── Cover.tsx                  # z-index 8; pointer-events:none after flip; discreet 🌙 Modo Soninho link in flip content
 │   ├── KeywordPage.tsx            # z-index 7; keyword input + suggestion chips; accepts initialKeyword prop to pre-fill from URL
 │   ├── HeroPage.tsx               # z-index 6; hero name input
 │   ├── AgePage.tsx                # z-index 5; age cards; triggers API call
@@ -214,18 +214,18 @@ Fired via a local `fireGtagEvent(name, params?)` helper (guards on `window.gtag`
 
 `story_started`/`share_clicked` are custom events, not conversion actions with a `send_to` label yet — set those up in Google Ads → Metas → Conversões → Nova ação de conversão → **Google tag**, which detects them from the existing tag after they've fired a few times in production.
 
-### Modo Soninho funnel events (`historia-para-dormir.tsx` + `SleepNarrationPlayer.tsx`)
+### Modo Soninho funnel events (`Cover.tsx` + `historia-para-dormir.tsx` + `SleepNarrationPlayer.tsx`)
 Each file has its own local copy of `fireGtagEvent` (intentional duplication, same as `pages/index.tsx` — not a shared helper in this codebase):
 | Event | Trigger | gtag call |
 |---|---|---|
-| `sleep_mode_clicked` | Secondary CTA click on `historia-para-dormir.tsx` → `/modo-soninho` | `gtag('event', 'sleep_mode_clicked')` |
+| `sleep_mode_clicked` | Discreet `🌙 Modo Soninho` link on `Cover.tsx` (homepage, inside the flip content — deactivates with the rest of the cover once `pointer-events: none` kicks in post-flip), and the secondary CTA on `historia-para-dormir.tsx` → `/modo-soninho` | `gtag('event', 'sleep_mode_clicked', { source: 'home' \| 'landing' })` |
 | `sleep_story_started` | First Play tap for a story in `SleepNarrationPlayer`, and again on each voice switch mid-playback (a fresh listen on the new voice) | `gtag('event', 'sleep_story_started', { story: slug, voice: engine })` |
 | `sleep_story_progress` | Halfway paragraph reached, on manual Stop (with `listened_minutes`), and on a mid-playback voice switch (with `listened_minutes` for the *abandoned* voice) | `gtag('event', 'sleep_story_progress', { story: slug, voice: engine, listened_minutes? })` |
 | `sleep_story_completed` | Natural end of the last paragraph only (not on manual Stop or a voice switch) | `gtag('event', 'sleep_story_completed', { story: slug, voice: engine })` |
 | `sleep_noise_started` | Ambient noise tail begins, immediately after `sleep_story_completed` fires | `gtag('event', 'sleep_noise_started', { story: slug, voice: engine })` |
 | `sleep_noise_stopped` | Noise tail ends — manual Stop, lock-screen Stop, the sleep timer (if one governs it), or the no-timer fallback duration | `gtag('event', 'sleep_noise_stopped', { story: slug, voice: engine, noise_minutes })` |
 
-These exist because `sleep_mode_clicked` alone only proves the CTA is noticed — `started`/`progress`/`completed` are what actually validate the listening-behavior hypothesis the MVP is testing. The `voice` param (added once stories shipped with more than one engine) segments the funnel by voice — note that a voice switch means `started` counts are per voice-session, not per child-session. `sleep_noise_started`/`sleep_noise_stopped` carry `voice` too (the narration voice that had just finished, not a property of the noise itself) purely for segmentation consistency with the rest of the table.
+These exist because `sleep_mode_clicked` alone only proves the CTA is noticed — `started`/`progress`/`completed` are what actually validate the listening-behavior hypothesis the MVP is testing. `sleep_mode_clicked`'s `source` param (`"home"` vs `"landing"`) exists specifically to compare which entry point actually drives listens now that the homepage has its own door into the experiment — paid clicks landing on `/` and siphoning straight to a free passive experience will show up here as a shift in `story_started` conversion rate, and `source` plus the funnel events below are what distinguish that being cannibalization vs. found demand. The `voice` param (added once stories shipped with more than one engine) segments the funnel by voice — note that a voice switch means `started` counts are per voice-session, not per child-session. `sleep_noise_started`/`sleep_noise_stopped` carry `voice` too (the narration voice that had just finished, not a property of the noise itself) purely for segmentation consistency with the rest of the table.
 
 ---
 

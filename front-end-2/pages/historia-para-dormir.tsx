@@ -332,7 +332,7 @@ export default function HistoriaParaDormir() {
           <CTALink href="/?keyword=sono">Criar história de ninar ✨</CTALink>
           <SecondaryCTALink
             href="/modo-soninho"
-            onClick={() => fireGtagEvent("sleep_mode_clicked")}
+            onClick={() => fireGtagEvent("sleep_mode_clicked", { source: "landing" })}
           >
             🧪 Experimente o Modo Soninho (beta)
           </SecondaryCTALink>

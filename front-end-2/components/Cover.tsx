@@ -1,6 +1,13 @@
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import styled, { css, keyframes } from "styled-components";
+
+function fireGtagEvent(eventName: string, params?: Record<string, unknown>) {
+  if (typeof (window as any).gtag === "function") {
+    (window as any).gtag("event", eventName, params);
+  }
+}
 
 const CenterBook = styled.section`
   width: 95%;
@@ -119,6 +126,20 @@ const CTAButton = styled.button`
   box-shadow: 0 4px 20px rgba(255, 215, 0, 0.45);
   font-family: "Courier New", Courier, monospace;
   white-space: nowrap;
+`;
+
+const SleepModeLink = styled(Link)`
+  margin-top: 40px;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.5);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  padding-bottom: 1px;
+  transition: color 0.15s;
+  &:hover {
+    color: #ffd700;
+  }
 `;
 
 const StarsWrapper = styled.div<TSStyledCoverBack>`
@@ -305,6 +326,12 @@ export default function Book() {
           <Subtitle display={"false"}>Histórias e fábulas</Subtitle>
           <Author display={"false"}>Para crianças de 0 a 14 anos</Author>
           <CTAButton onClick={handleFlip}>Criar minha história ✨</CTAButton>
+          <SleepModeLink
+            href="/modo-soninho"
+            onClick={() => fireGtagEvent("sleep_mode_clicked", { source: "home" })}
+          >
+            🌙 Modo Soninho — histórias para ouvir
+          </SleepModeLink>
         </Content>
         {history.length === 0 && (
           <>
