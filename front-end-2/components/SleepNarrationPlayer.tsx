@@ -2,14 +2,56 @@ import { useEffect, useRef, useState } from "react";
 import styled, { css, keyframes } from "styled-components";
 import { ISleepStory } from "@/interfaces/ISleepStory";
 
-const NARRATION_RATE = 0.85;
-const NARRATION_PITCH = 0.9;
-const RESUME_WATCHDOG_MS = 1000;
+const VOICE_STORAGE_KEY = "modo_soninho_voice";
+const FADE_MS = 300;
 
 function fireGtagEvent(eventName: string, params?: Record<string, unknown>) {
   if (typeof (window as any).gtag === "function") {
     (window as any).gtag("event", eventName, params);
   }
+}
+
+/** Last paragraph index whose start timestamp has already been reached. */
+function paragraphIndexForElapsedMs(elapsedMs: number, timestamps: number[]): number {
+  let idx = 0;
+  for (let i = 0; i < timestamps.length; i++) {
+    if (elapsedMs >= timestamps[i]) idx = i;
+  }
+  return idx;
+}
+
+/**
+ * Ramps audio.volume over `durationMs`. No-op in effect (but harmless) on iOS
+ * Safari, where HTMLMediaElement.volume is effectively read-only - the OS
+ * owns hardware volume there, so a voice switch is a hard cut on iOS by
+ * design for this version. Fixing that for real would mean a Web Audio
+ * GainNode - which needs crossOrigin="anonymous" on this element PLUS a
+ * matching CORS rule on the GCS bucket (not currently configured; plain
+ * <audio src> playback doesn't need either, which is why neither is set).
+ */
+function fadeVolume(
+  audio: HTMLAudioElement,
+  from: number,
+  to: number,
+  durationMs: number,
+  onDone: () => void,
+  intervalRef: React.MutableRefObject<ReturnType<typeof setInterval> | null>,
+) {
+  if (intervalRef.current) clearInterval(intervalRef.current);
+  const steps = 12;
+  const stepMs = durationMs / steps;
+  let i = 0;
+  audio.volume = from;
+  intervalRef.current = setInterval(() => {
+    i++;
+    audio.volume = Math.min(1, Math.max(0, from + (to - from) * (i / steps)));
+    if (i >= steps) {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      intervalRef.current = null;
+      audio.volume = to;
+      onDone();
+    }
+  }, stepMs);
 }
 
 interface ISleepNarrationPlayerProps {
@@ -106,6 +148,29 @@ const ControlButton = styled.button`
   }
 `;
 
+const VoiceToggle = styled.button`
+  appearance: none;
+  -webkit-appearance: none;
+  font: inherit;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.8rem;
+  padding: 6px 14px;
+  margin: 0 0 24px 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.95);
+  }
+`;
+
 const SleepTimerRow = styled.div`
   display: flex;
   justify-content: center;
@@ -133,27 +198,42 @@ const FallbackMessage = styled.p`
 `;
 
 export default function SleepNarrationPlayer({ story, onExit }: ISleepNarrationPlayerProps) {
+  const [voiceIndex, setVoiceIndex] = useState(0);
   const [currentParagraphIndex, setCurrentParagraphIndex] = useState(0);
   const [playState, setPlayState] = useState<"idle" | "playing" | "paused">("idle");
   const [sleepTimerMinutes, setSleepTimerMinutes] = useState<number | null>(null);
-  const [speechSupported, setSpeechSupported] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
-  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const sleepTimerHandleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const watchdogHandleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fadeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hasStartedRef = useRef(false);
   const hasFiredHalfwayRef = useRef(false);
   const startedAtRef = useRef<number | null>(null);
+  const pendingAutoplayRef = useRef(false);
 
+  const currentVoice = story.voices[voiceIndex];
+
+  // Read the stored voice preference on mount, AFTER hydration - never in the
+  // useState initializer above, since /modo-soninho is statically generated
+  // and the server-rendered HTML always reflects voices[0]. Reading
+  // localStorage in the initializer would make a returning user's client
+  // render disagree with that HTML and trigger a hydration mismatch.
   useEffect(() => {
-    setSpeechSupported("speechSynthesis" in window);
+    try {
+      const stored = window.localStorage.getItem(VOICE_STORAGE_KEY);
+      const matchIndex = story.voices.findIndex((v) => v.engine === stored);
+      if (matchIndex >= 0) setVoiceIndex(matchIndex);
+    } catch {
+      // localStorage unavailable (private mode, disabled) - just use the default voice
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     return () => {
-      if ("speechSynthesis" in window) window.speechSynthesis.cancel();
       if (sleepTimerHandleRef.current) clearTimeout(sleepTimerHandleRef.current);
-      if (watchdogHandleRef.current) clearTimeout(watchdogHandleRef.current);
+      if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current);
     };
   }, []);
 
@@ -161,13 +241,6 @@ export default function SleepNarrationPlayer({ story, onExit }: ISleepNarrationP
     if (sleepTimerHandleRef.current) {
       clearTimeout(sleepTimerHandleRef.current);
       sleepTimerHandleRef.current = null;
-    }
-  };
-
-  const clearWatchdog = () => {
-    if (watchdogHandleRef.current) {
-      clearTimeout(watchdogHandleRef.current);
-      watchdogHandleRef.current = null;
     }
   };
 
@@ -179,75 +252,65 @@ export default function SleepNarrationPlayer({ story, onExit }: ISleepNarrationP
     startedAtRef.current = null;
   };
 
-  const speakParagraph = (index: number) => {
-    if (!("speechSynthesis" in window)) return;
-
-    if (index >= story.paragraphs.length) {
-      fireGtagEvent("sleep_story_completed", { story: story.slug });
-      clearSleepTimer();
-      resetProgress();
-      return;
-    }
-
-    const utterance = new SpeechSynthesisUtterance(story.paragraphs[index]);
-    utterance.lang = "pt-BR";
-    utterance.rate = NARRATION_RATE;
-    utterance.pitch = NARRATION_PITCH;
-    utterance.onend = () => {
-      const nextIndex = index + 1;
-      const halfway = Math.floor(story.paragraphs.length / 2);
-      if (!hasFiredHalfwayRef.current && nextIndex >= halfway) {
-        hasFiredHalfwayRef.current = true;
-        fireGtagEvent("sleep_story_progress", { story: story.slug });
-      }
-      setCurrentParagraphIndex(nextIndex);
-      speakParagraph(nextIndex);
-    };
-    utteranceRef.current = utterance;
-    window.speechSynthesis.speak(utterance);
-  };
-
   const handlePlay = () => {
-    if (!("speechSynthesis" in window)) return;
-
-    if (playState === "paused") {
-      window.speechSynthesis.resume();
-      setPlayState("playing");
-      clearWatchdog();
-      watchdogHandleRef.current = setTimeout(() => {
-        if (window.speechSynthesis.paused) {
-          window.speechSynthesis.cancel();
-          speakParagraph(currentParagraphIndex);
-        }
-      }, RESUME_WATCHDOG_MS);
-      return;
-    }
+    const audio = audioRef.current;
+    if (!audio) return;
 
     if (!hasStartedRef.current) {
       hasStartedRef.current = true;
       startedAtRef.current = Date.now();
-      fireGtagEvent("sleep_story_started", { story: story.slug });
+      fireGtagEvent("sleep_story_started", { story: story.slug, voice: currentVoice.engine });
     }
     setPlayState("playing");
-    speakParagraph(currentParagraphIndex);
+    audio.play().catch(() => {
+      // Autoplay/gesture rejection - settle into a clean paused state rather
+      // than looking like it's playing while silent.
+      setPlayState("paused");
+    });
   };
 
   const handlePause = () => {
-    if (!("speechSynthesis" in window)) return;
-    window.speechSynthesis.pause();
+    audioRef.current?.pause();
     setPlayState("paused");
   };
 
   const handleStop = () => {
-    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    const audio = audioRef.current;
+    if (audio) {
+      audio.pause();
+      audio.currentTime = 0;
+    }
     clearSleepTimer();
-    clearWatchdog();
     if (hasStartedRef.current) {
       const listenedMinutes = startedAtRef.current
         ? Math.round(((Date.now() - startedAtRef.current) / 60000) * 10) / 10
         : 0;
-      fireGtagEvent("sleep_story_progress", { story: story.slug, listened_minutes: listenedMinutes });
+      fireGtagEvent("sleep_story_progress", {
+        story: story.slug,
+        voice: currentVoice.engine,
+        listened_minutes: listenedMinutes,
+      });
     }
+    resetProgress();
+  };
+
+  const handleTimeUpdate = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const elapsedMs = audio.currentTime * 1000;
+    const index = paragraphIndexForElapsedMs(elapsedMs, currentVoice.paragraphTimestamps);
+    setCurrentParagraphIndex(index);
+
+    const halfway = Math.floor(story.paragraphs.length / 2);
+    if (!hasFiredHalfwayRef.current && index >= halfway) {
+      hasFiredHalfwayRef.current = true;
+      fireGtagEvent("sleep_story_progress", { story: story.slug, voice: currentVoice.engine });
+    }
+  };
+
+  const handleEnded = () => {
+    fireGtagEvent("sleep_story_completed", { story: story.slug, voice: currentVoice.engine });
+    clearSleepTimer();
     resetProgress();
   };
 
@@ -261,13 +324,104 @@ export default function SleepNarrationPlayer({ story, onExit }: ISleepNarrationP
     }
   };
 
-  if (!speechSupported) {
+  // Switching voice restarts the story from the beginning on the new voice,
+  // rather than trying to resume at an equivalent position - different
+  // engines pace speech differently, so "the same position" isn't meaningfully
+  // defined across two voices' paragraphTimestamps. The sleep timer (if set)
+  // is intentionally left running across a switch; only playback progress resets.
+  const handleSwitchVoice = (nextIndex: number) => {
+    if (nextIndex === voiceIndex || !story.voices[nextIndex]) return;
+
+    try {
+      window.localStorage.setItem(VOICE_STORAGE_KEY, story.voices[nextIndex].engine);
+    } catch {
+      // localStorage unavailable - preference just won't persist
+    }
+
+    const audio = audioRef.current;
+    const wasPlaying = playState === "playing";
+    pendingAutoplayRef.current = wasPlaying;
+
+    const commitSwitch = () => {
+      if (hasStartedRef.current) {
+        const listenedMinutes = startedAtRef.current
+          ? Math.round(((Date.now() - startedAtRef.current) / 60000) * 10) / 10
+          : 0;
+        fireGtagEvent("sleep_story_progress", {
+          story: story.slug,
+          voice: currentVoice.engine,
+          listened_minutes: listenedMinutes,
+        });
+      }
+      resetProgress();
+      setVoiceIndex(nextIndex);
+    };
+
+    if (audio && wasPlaying) {
+      fadeVolume(audio, 1, 0, FADE_MS, commitSwitch, fadeIntervalRef);
+    } else {
+      commitSwitch();
+    }
+  };
+
+  // Runs after the <audio> element remounts (key={engine} below) on a voice
+  // switch that happened mid-playback - resumes playback on the new voice.
+  useEffect(() => {
+    if (!pendingAutoplayRef.current) return;
+    pendingAutoplayRef.current = false;
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    hasStartedRef.current = true;
+    startedAtRef.current = Date.now();
+    fireGtagEvent("sleep_story_started", { story: story.slug, voice: currentVoice.engine });
+
+    audio.volume = 0;
+    audio
+      .play()
+      .then(() => {
+        setPlayState("playing");
+        fadeVolume(audio, 0, 1, FADE_MS, () => {}, fadeIntervalRef);
+      })
+      .catch(() => {
+        audio.volume = 1;
+        setPlayState("paused");
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [voiceIndex]);
+
+  // Lock-screen controls: lets a parent pause/stop without lighting up the phone.
+  useEffect(() => {
+    if (!("mediaSession" in navigator)) return;
+    navigator.mediaSession.metadata = new MediaMetadata({ title: story.title });
+    navigator.mediaSession.setActionHandler("play", handlePlay);
+    navigator.mediaSession.setActionHandler("pause", handlePause);
+    navigator.mediaSession.setActionHandler("stop", handleStop);
+    return () => {
+      navigator.mediaSession.setActionHandler("play", null);
+      navigator.mediaSession.setActionHandler("pause", null);
+      navigator.mediaSession.setActionHandler("stop", null);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [story, voiceIndex]);
+
+  if (!currentVoice) {
+    return (
+      <Wrap>
+        <ExitButton onClick={onExit}>‹ Voltar</ExitButton>
+        <StoryTitle>{story.title}</StoryTitle>
+        <FallbackMessage>Narração ainda não disponível para esta história.</FallbackMessage>
+      </Wrap>
+    );
+  }
+
+  if (loadError) {
     return (
       <Wrap>
         <ExitButton onClick={onExit}>‹ Voltar</ExitButton>
         <StoryTitle>{story.title}</StoryTitle>
         <FallbackMessage>
-          A narração por voz não está disponível neste navegador.
+          Não foi possível carregar a narração desta história. Tente novamente mais tarde.
         </FallbackMessage>
       </Wrap>
     );
@@ -275,6 +429,17 @@ export default function SleepNarrationPlayer({ story, onExit }: ISleepNarrationP
 
   return (
     <Wrap>
+      <audio
+        key={currentVoice.engine}
+        ref={audioRef}
+        src={currentVoice.audioUrl}
+        preload="metadata"
+        onTimeUpdate={handleTimeUpdate}
+        onEnded={handleEnded}
+        onError={() => setLoadError(true)}
+        style={{ display: "none" }}
+      />
+
       <ExitButton onClick={onExit}>‹ Voltar</ExitButton>
       <StoryTitle>{story.title}</StoryTitle>
 
@@ -306,6 +471,15 @@ export default function SleepNarrationPlayer({ story, onExit }: ISleepNarrationP
           ⏹
         </ControlButton>
       </Controls>
+
+      {story.voices.length > 1 && (
+        <VoiceToggle
+          onClick={() => handleSwitchVoice((voiceIndex + 1) % story.voices.length)}
+          title="Trocar voz"
+        >
+          🔊 {currentVoice.label}
+        </VoiceToggle>
+      )}
 
       <SleepTimerRow>
         <label htmlFor="sleep-timer">Parar sozinho em:</label>

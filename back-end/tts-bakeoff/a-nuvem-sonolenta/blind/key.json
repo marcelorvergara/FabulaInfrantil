@@ -1,0 +1,5 @@
+{
+  "candidate-A.wav": "google",
+  "candidate-B.wav": "openai",
+  "candidate-C.wav": "elevenlabs"
+}

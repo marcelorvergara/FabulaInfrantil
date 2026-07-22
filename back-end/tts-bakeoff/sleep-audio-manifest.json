@@ -1,0 +1,156 @@
+{
+  "engines": [
+    "openai",
+    "elevenlabs"
+  ],
+  "results": [
+    {
+      "slug": "a-nuvem-sonolenta",
+      "voices": [
+        {
+          "engine": "openai",
+          "label": "OpenAI",
+          "audioUrl": "https://storage.googleapis.com/images-gen/sleep-audio/a-nuvem-sonolenta-openai.mp3",
+          "paragraphTimestamps": [
+            0,
+            9250,
+            18800,
+            32850,
+            43700,
+            52900,
+            62500,
+            71600,
+            81950
+          ]
+        },
+        {
+          "engine": "elevenlabs",
+          "label": "ElevenLabs",
+          "audioUrl": "https://storage.googleapis.com/images-gen/sleep-audio/a-nuvem-sonolenta-elevenlabs.mp3",
+          "paragraphTimestamps": [
+            0,
+            13228,
+            27896,
+            48925,
+            64011,
+            78818,
+            93485,
+            107038,
+            125282
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "o-ursinho-e-as-estrelas",
+      "voices": [
+        {
+          "engine": "openai",
+          "label": "OpenAI",
+          "audioUrl": "https://storage.googleapis.com/images-gen/sleep-audio/o-ursinho-e-as-estrelas-openai.mp3",
+          "paragraphTimestamps": [
+            0,
+            8900,
+            18150,
+            27300,
+            38450,
+            49000,
+            59200,
+            69900,
+            79650
+          ]
+        },
+        {
+          "engine": "elevenlabs",
+          "label": "ElevenLabs",
+          "audioUrl": "https://storage.googleapis.com/images-gen/sleep-audio/o-ursinho-e-as-estrelas-elevenlabs.mp3",
+          "paragraphTimestamps": [
+            0,
+            13599,
+            23855,
+            39823,
+            52447,
+            72595,
+            88563,
+            105041,
+            121195
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "a-barca-do-rio-mansinho",
+      "voices": [
+        {
+          "engine": "openai",
+          "label": "OpenAI",
+          "audioUrl": "https://storage.googleapis.com/images-gen/sleep-audio/a-barca-do-rio-mansinho-openai.mp3",
+          "paragraphTimestamps": [
+            0,
+            9800,
+            20200,
+            30250,
+            39500,
+            48600,
+            60350,
+            68550,
+            77950
+          ]
+        },
+        {
+          "engine": "elevenlabs",
+          "label": "ElevenLabs",
+          "audioUrl": "https://storage.googleapis.com/images-gen/sleep-audio/a-barca-do-rio-mansinho-elevenlabs.mp3",
+          "paragraphTimestamps": [
+            0,
+            12067,
+            26084,
+            39916,
+            54816,
+            66093,
+            81179,
+            94778,
+            109725
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "o-jardim-que-dorme",
+      "voices": [
+        {
+          "engine": "openai",
+          "label": "OpenAI",
+          "audioUrl": "https://storage.googleapis.com/images-gen/sleep-audio/o-jardim-que-dorme-openai.mp3",
+          "paragraphTimestamps": [
+            0,
+            8650,
+            17950,
+            30200,
+            39250,
+            48900,
+            59800,
+            70300,
+            81550
+          ]
+        },
+        {
+          "engine": "elevenlabs",
+          "label": "ElevenLabs",
+          "audioUrl": "https://storage.googleapis.com/images-gen/sleep-audio/o-jardim-que-dorme-elevenlabs.mp3",
+          "paragraphTimestamps": [
+            0,
+            11277,
+            26363,
+            45489,
+            60017,
+            74592,
+            90142,
+            104902,
+            120638
+          ]
+        }
+      ]
+    }
+  ]
+}

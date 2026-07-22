@@ -8,7 +8,7 @@ import SleepNarrationPlayer from "@/components/SleepNarrationPlayer";
 const CANONICAL_URL = "https://fabulainfantil.com/modo-soninho";
 const PAGE_TITLE = "Modo Soninho (beta) — Histórias Narradas para Dormir | Fábula Infantil";
 const PAGE_DESCRIPTION =
-  "Ouça histórias calmas de ninar, narradas pela voz do seu navegador, com timer de sono. Experimento beta da Fábula Infantil.";
+  "Ouça histórias calmas de ninar, narradas com voz natural, com timer de sono. Experimento beta da Fábula Infantil.";
 
 const twinkle = keyframes`
   0%, 100% { opacity: 0.25; }
@@ -218,7 +218,7 @@ export default function ModoSoninho() {
           <BetaBadge>🧪 beta</BetaBadge>
           <H1>Modo Soninho</H1>
           <Subtitle>
-            Histórias calmas, narradas pela voz do seu navegador, para embalar o sono.
+            Histórias calmas, narradas com voz natural, para embalar o sono.
           </Subtitle>
         </Hero>
 

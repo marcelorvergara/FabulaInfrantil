@@ -55,6 +55,10 @@ back-end/
 ├── services/                      # OpenAI + fal.ai calls, exponential backoff (5 retries)
 ├── repository/                    # Firestore read/write, incl. llmTelemetry.repo.ts
 ├── utils/                         # SHA-256 hashing, llmPricing.ts (cost-per-call estimates)
+├── scripts/                       # One-off dev/ops scripts — not part of the Express app or deploy path
+│   ├── lib/ttsEngines.ts          # Shared Google/OpenAI/ElevenLabs TTS render + WAV assembly, used by both scripts below
+│   ├── render-sleep-audio.ts      # Modo Soninho TTS bake-off — blind-renders one story through 2-3 engines for listening comparison
+│   └── ship-sleep-audio.ts        # Renders all 4 sleep stories with one or more engines (--engines a,b), transcodes to mp3, uploads one file per story per engine to GCS sleep-audio/ — see "Modo Soninho" below
 └── public/                        # EJS template for share pages
 ```
 
@@ -81,13 +85,13 @@ front-end-2/
 │   ├── SpinnerAnimation.tsx       # Loading with Portuguese phrases
 │   ├── Modal.tsx                  # Fullscreen image viewer
 │   ├── TTSButton.tsx              # Text-to-speech toggle on book-flow story pages (single-utterance, native speechSynthesis)
-│   ├── SleepNarrationPlayer.tsx   # Per-paragraph speechSynthesis player for /modo-soninho — separate from TTSButton, see "Modo Soninho" below
+│   ├── SleepNarrationPlayer.tsx   # <audio>-based narration player for /modo-soninho — separate from TTSButton, see "Modo Soninho" below
 │   └── CookieBanner.tsx           # z-index 9999; fixed bottom; shows until user accepts/declines; upgrades Consent Mode v2 signals to granted on accept
 ├── data/
-│   └── sleepStories.ts            # Fixed library of pt-BR bedtime stories (ISleepStory[]) for /modo-soninho — not GPT-generated, repetition is deliberate
+│   └── sleepStories.ts            # Fixed library of pt-BR bedtime stories (ISleepStory[]) for /modo-soninho — not GPT-generated, repetition is deliberate; voices[] populated by back-end/scripts/ship-sleep-audio.ts
 ├── interfaces/
 │   ├── IResult.ts                 # IMessage / IResult — story generation response shape
-│   └── ISleepStory.ts             # slug/title/teaser/estimatedMinutes/paragraphs shape for sleepStories.ts
+│   └── ISleepStory.ts             # slug/title/teaser/estimatedMinutes/paragraphs/voices[] shape for sleepStories.ts — each voice is { engine, label, audioUrl, paragraphTimestamps }
 └── helpers/
     ├── fetchHelper.ts             # getText, generateImage, shareStoryHelper, pollShareReady
     ├── generalFunctions.ts        # getFirst60Percent (trims image prompts)
@@ -214,11 +218,11 @@ Each file has its own local copy of `fireGtagEvent` (intentional duplication, sa
 | Event | Trigger | gtag call |
 |---|---|---|
 | `sleep_mode_clicked` | Secondary CTA click on `historia-para-dormir.tsx` → `/modo-soninho` | `gtag('event', 'sleep_mode_clicked')` |
-| `sleep_story_started` | First Play tap for a story in `SleepNarrationPlayer` | `gtag('event', 'sleep_story_started', { story: slug })` |
-| `sleep_story_progress` | Halfway paragraph reached, and again (with `listened_minutes`) on manual Stop | `gtag('event', 'sleep_story_progress', { story: slug, listened_minutes? })` |
-| `sleep_story_completed` | Natural end of the last paragraph only (not on manual Stop) | `gtag('event', 'sleep_story_completed', { story: slug })` |
+| `sleep_story_started` | First Play tap for a story in `SleepNarrationPlayer`, and again on each voice switch mid-playback (a fresh listen on the new voice) | `gtag('event', 'sleep_story_started', { story: slug, voice: engine })` |
+| `sleep_story_progress` | Halfway paragraph reached, on manual Stop (with `listened_minutes`), and on a mid-playback voice switch (with `listened_minutes` for the *abandoned* voice) | `gtag('event', 'sleep_story_progress', { story: slug, voice: engine, listened_minutes? })` |
+| `sleep_story_completed` | Natural end of the last paragraph only (not on manual Stop or a voice switch) | `gtag('event', 'sleep_story_completed', { story: slug, voice: engine })` |
 
-These exist because `sleep_mode_clicked` alone only proves the CTA is noticed — `started`/`progress`/`completed` are what actually validate the listening-behavior hypothesis the MVP is testing.
+These exist because `sleep_mode_clicked` alone only proves the CTA is noticed — `started`/`progress`/`completed` are what actually validate the listening-behavior hypothesis the MVP is testing. The `voice` param (added once stories shipped with more than one engine) segments the funnel by voice — note that a voice switch means `started` counts are per voice-session, not per child-session.
 
 ---
 
@@ -258,17 +262,29 @@ To add another theme page, copy this pattern with a new keyword/route (e.g. `/hi
 Passive, audio-first "bedtime story" experiment at `/modo-soninho` — a deliberate departure from the branching-book flow, testing the hypothesis that a sleep product wants passive listening and repetition, not screen interactivity and novelty. Linked from [historia-para-dormir.tsx](front-end-2/pages/historia-para-dormir.tsx) as a subdued secondary CTA (`🧪 Experimente o Modo Soninho (beta)`) placed under the primary CTA — the primary CTA/copy is untouched and stays the priority path until this MVP shows real return-visit behavior.
 
 **Deliberate MVP scope (revisit only once the funnel events above show demand):**
-- Browser-native `speechSynthesis`, not cloud TTS or LiteRT.js/on-device ML — zero infra cost to test the format first.
 - Fixed library of 4 stories ([data/sleepStories.ts](front-end-2/data/sleepStories.ts)) — repetition is the point for a sleep product, not a limitation; not GPT-generated per session.
 - No PWA / Service Worker / offline caching yet.
 - `<meta name="robots" content="noindex, follow">` on the page — unlike `historia-para-dormir.tsx`'s `index, follow` — since this is an unvalidated experiment that may be reworked or pulled.
 
-**[SleepNarrationPlayer.tsx](front-end-2/components/SleepNarrationPlayer.tsx)** is a new component, deliberately not a modification of `TTSButton.tsx` (which is live in the book flow's `ThirdPage`/`FourthPage`/`LastPage` — changing its behavior risked regressing it). It speaks one `SpeechSynthesisUtterance` per paragraph, chained via `onend`, rather than one utterance for the whole story — this is what makes a real mid-story progress indicator possible. Tuned for bedtime pacing: `rate: 0.85`, `pitch: 0.9`, `lang: "pt-BR"`.
+**Narration: pre-rendered `<audio>`, not live TTS.** The MVP originally shipped on browser-native `speechSynthesis` (zero infra cost, fastest way to validate the passive-listening format). Once the format proved out, narration moved to real pre-rendered audio — a one-time asset-generation problem, not a runtime-cost one, since the library is fixed and rendered once rather than per session:
 
-Known `speechSynthesis` landmines, handled defensively rather than left for a follow-up bugfix:
-- The active utterance is held in a `useRef`, not a local variable — Chrome has a long-standing bug where an utterance that goes out of scope mid-speech stops audio silently and never fires `onend`, wedging the paragraph chain.
-- `pause()/resume()` is flaky specifically on Android Chrome (`resume()` can permanently wedge the engine). A ~1s watchdog after resume checks `speechSynthesis.paused`; if still stuck, it falls back to `cancel()` + re-`speak()` the current paragraph from its start.
-- Per-paragraph utterances also sidestep a separate Chrome bug that cuts off long single utterances around ~15s.
+1. `back-end/scripts/render-sleep-audio.ts` — blind TTS bake-off. Renders one story through 2–3 engines (Google Cloud TTS, OpenAI `gpt-4o-mini-tts`, optionally ElevenLabs), shuffles the output filenames + writes a `key.json`, so you can score voices by ear (night, phone speaker, real bedtime volume) before knowing which is which.
+2. `back-end/scripts/ship-sleep-audio.ts` — once winning engine(s) are picked, renders all 4 stories with each (`--engines openai,elevenlabs` — supports one or more; the bake-off turned up two winners, and rendering both for the whole library is still a few cents total, not a real cost concern), transcodes each to **mono 96kbps mp3** (spoken narration doesn't need ffmpeg's stereo/128kbps+ defaults — keeps a 5-minute story to ~2–4MB on bedtime Wi-Fi), and uploads to the existing `images-gen` GCS bucket under `sleep-audio/{slug}-{engine}.mp3` (one file per story per engine; same bucket/project/public-read pattern as `GenerateImageController.ts`, not a new bucket). Uploads set `Cache-Control: public, max-age=31536000, immutable` since these files never change post-ship — **if a story/engine is ever re-rendered, upload under a versioned filename (`{slug}-{engine}-v2.mp3`) instead of overwriting**, or the immutable cache header keeps serving the old voice for up to a year.
+3. Both scripts share `back-end/scripts/lib/ttsEngines.ts` (per-paragraph rendering + WAV assembly), so the paragraph/silence-timing math exists in exactly one place.
+
+`ISleepStory.voices` (`ISleepStoryVoice[]`, in `ISleepStory.ts` / `sleepStories.ts`) is what lets multiple engines exist per story. Each voice carries its own `paragraphTimestamps` (cumulative ms offset per paragraph) — **not shared across voices** — because different engines pace speech differently, so `SleepNarrationPlayer.tsx` needs a separate timing map per voice to keep its per-paragraph progress dots + synced text accurate. **Timestamps are measured against the actual assembled PCM stream — including every inserted inter-paragraph silence gap — not the sum of paragraph durations.** Getting this wrong is invisible in a quick spot-check and only shows up later as the progress dots drifting further behind the narration with every paragraph (`assemble()` in `ttsEngines.ts` is where this is computed). `voice.label` is a human-facing string (e.g. "Voz suave") deliberately distinct from `voice.engine` — the UI never needs to say "OpenAI vs ElevenLabs" to a parent at bedtime.
+
+`back-end/tsconfig.json` has a `paths` mapping (`"@/*": ["../front-end-2/*"]`) purely so these scripts — which live in `back-end/` for its OpenAI/GCP credentials, but import `front-end-2/data/sleepStories.ts` for the story content — can resolve that file's `@/interfaces/ISleepStory` alias during typecheck. This does not affect the deployed backend at runtime.
+
+**[SleepNarrationPlayer.tsx](front-end-2/components/SleepNarrationPlayer.tsx)** is a separate component from `TTSButton.tsx` (which is live in the book flow's `ThirdPage`/`FourthPage`/`LastPage` — changing its behavior risked regressing it), built around a single hidden `<audio key={currentVoice.engine} src={currentVoice.audioUrl} />`:
+- **No `crossOrigin` attribute** — plain playback doesn't need it, and GCS objects don't send `Access-Control-Allow-Origin` by default even when publicly readable, so adding `crossOrigin="anonymous"` without a matching bucket CORS rule breaks playback outright (hit this directly: shipped with it set once, got a CORS error on every story). The follow-on roadmap (Web Audio API / `MediaElementAudioSourceNode` / a future LiteRT.js adaptive-narration layer) will need both `crossOrigin="anonymous"` here *and* a CORS rule configured on the `images-gen` bucket (GCS CORS is bucket-wide, not scopable to just `sleep-audio/`) added together at that point — don't add one without the other.
+- Play/Pause/Stop drive `audio.play()`/`audio.pause()`/`audio.currentTime = 0` directly — no more Chrome/Android `speechSynthesis` pause-resume watchdog, no per-paragraph utterance chaining; `<audio>` doesn't have those bugs.
+- Lock-screen controls via the **Media Session API** (`navigator.mediaSession.metadata` + `setActionHandler("play"/"pause"/"stop", ...)`) — for a parent lying in the dark next to an almost-asleep child, pausing without lighting up the phone screen is close to a core requirement for this product, not polish.
+- Fixes the MVP's core screen-lock failure mode: `speechSynthesis` did not reliably keep playing once the screen locked; a real `<audio>` element does.
+
+**Voice toggle**: when a story has more than one `voices[]` entry, a small pill button (`🔊 {label}`) appears next to the controls — clicking cycles to the next voice (`(voiceIndex + 1) % voices.length`). Not a picker/dropdown, deliberately — this is meant to be a light, low-key control, not a new feature surface. Preference is remembered in `localStorage` under `modo_soninho_voice`, matched against `voice.engine`. That read happens inside a mount `useEffect`, **never in the `useState` initializer** — `/modo-soninho` is statically generated, so the server-rendered HTML always reflects `voices[0]`, and reading `localStorage` in the initializer would make a returning user's client render disagree with that HTML and trigger a hydration mismatch (same reasoning as `CookieBanner`'s `cookie_consent` read).
+
+Switching voice **restarts the story from the beginning on the new voice** rather than resuming at an equivalent position — different engines pace speech differently, so "the same position" isn't meaningfully defined across two voices' separate `paragraphTimestamps` arrays. The `<audio>` element is keyed on `currentVoice.engine`, so React fully remounts it on switch (fresh element, no manual `.load()` calls, no stale-`src` edge cases, starts at `currentTime = 0`/`volume = 1` for free). A short volume fade (~300ms, ramping `audio.volume`) softens the cut on switch. **Known platform limitation**: on iOS Safari, `HTMLMediaElement.volume` is effectively read-only — the OS owns hardware volume there — so the fade is a no-op and switching voice is a hard cut on exactly the iPhone-heavy part of the audience. Acceptable for this version (a cut on a deliberate, user-initiated action reads very differently than an unexpected one); the real fix would be a Web Audio `GainNode`, which needs `crossOrigin` + bucket CORS added together at that point (see note above — not wired yet). The sleep timer (if set) intentionally keeps running across a voice switch — only playback progress resets. The post-switch `play()` call happens async, outside the original click's gesture — if the browser rejects it (iOS Safari is the strictest here), the player settles into a clean paused state on the new voice rather than looking like it's playing while silent.
 
 **Gotcha found while building this**: custom-styled `<button>`/`<select>` elements need `appearance: none` (`-webkit-appearance: none`) explicitly set, or native browser button chrome (light gray) paints over the intended dark/subtle `background` — surfaced via Playwright screenshot testing of the story-picker cards, invisible in casual review since the effect is subtle at small icon-button sizes but glaring on larger card-style buttons.
 
@@ -284,6 +300,16 @@ OPENAI_API_KEY          # OpenAI
 FAL_KEY                 # fal.ai
 GOOGLE_CLOUD_PROJECT    # GCP project
 INTERNAL_API_KEY        # Shared secret for GET /internal/llm-metrics (X-Internal-Key header)
+APP_CRED                # GCS service account keyFilename (images-gen bucket uploads — GenerateImageController + scripts/ship-sleep-audio.ts)
+
+# Backend — scripts/ only (Modo Soninho TTS bake-off/ship scripts; not read by the deployed Express app)
+GOOGLE_APPLICATION_CREDENTIALS  # Google Cloud TTS auth (or `gcloud auth application-default login`)
+GOOGLE_TTS_VOICE                # optional override, default pt-BR-Neural2-A
+OPENAI_TTS_MODEL                # optional override, default gpt-4o-mini-tts
+OPENAI_TTS_VOICE                # optional override, default nova
+ELEVENLABS_API_KEY              # optional third bake-off candidate; that engine is skipped if unset
+ELEVENLABS_VOICE_ID             # required if ELEVENLABS_API_KEY is set
+ELEVENLABS_MODEL                # optional override, default eleven_multilingual_v2
 
 # Frontend
 NEXT_PUBLIC_BACKEND_SRV          # Backend base URL (e.g. http://localhost:3005)

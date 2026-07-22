@@ -17,6 +17,20 @@ export const sleepStories: ISleepStory[] = [
       "Devagar, devagarinho, a respiração da nuvem foi ficando mais calma, mais calma, mais calma ainda.",
       "E assim, envolta em silêncio e estrelas, a nuvem sonolenta fechou os olhos e adormeceu profundamente, tranquila até o amanhecer.",
     ],
+    voices: [
+      {
+        engine: "openai",
+        label: "Voz suave",
+        audioUrl: "https://storage.googleapis.com/images-gen/sleep-audio/a-nuvem-sonolenta-openai.mp3",
+        paragraphTimestamps: [0, 9250, 18800, 32850, 43700, 52900, 62500, 71600, 81950],
+      },
+      {
+        engine: "elevenlabs",
+        label: "Voz calorosa",
+        audioUrl: "https://storage.googleapis.com/images-gen/sleep-audio/a-nuvem-sonolenta-elevenlabs.mp3",
+        paragraphTimestamps: [0, 13228, 27896, 48925, 64011, 78818, 93485, 107038, 125282],
+      },
+    ],
   },
   {
     slug: "o-ursinho-e-as-estrelas",
@@ -33,6 +47,20 @@ export const sleepStories: ISleepStory[] = [
       "Sete... oito... o ursinho já mal conseguia manter os olhinhos abertos, mas continuou, bem devagar.",
       "Nove... dez... e no décimo bocejo, o ursinho de pelúcia deslizou para debaixo das cobertas macias.",
       "Com o coração calmo e a respiração tranquila, o ursinho fechou os olhos, sabendo que as estrelas cuidariam do céu a noite toda.",
+    ],
+    voices: [
+      {
+        engine: "openai",
+        label: "Voz suave",
+        audioUrl: "https://storage.googleapis.com/images-gen/sleep-audio/o-ursinho-e-as-estrelas-openai.mp3",
+        paragraphTimestamps: [0, 8900, 18150, 27300, 38450, 49000, 59200, 69900, 79650],
+      },
+      {
+        engine: "elevenlabs",
+        label: "Voz calorosa",
+        audioUrl: "https://storage.googleapis.com/images-gen/sleep-audio/o-ursinho-e-as-estrelas-elevenlabs.mp3",
+        paragraphTimestamps: [0, 13599, 23855, 39823, 52447, 72595, 88563, 105041, 121195],
+      },
     ],
   },
   {
@@ -51,6 +79,20 @@ export const sleepStories: ISleepStory[] = [
       "A pequena barca encostou em um porto quietinho, coberto de musgo macio, e ali ela parou para descansar.",
       "Embalada pelo som da água e pelo canto baixinho dos grilos, a barca adormeceu serena, flutuando em paz até o dia clarear.",
     ],
+    voices: [
+      {
+        engine: "openai",
+        label: "Voz suave",
+        audioUrl: "https://storage.googleapis.com/images-gen/sleep-audio/a-barca-do-rio-mansinho-openai.mp3",
+        paragraphTimestamps: [0, 9800, 20200, 30250, 39500, 48600, 60350, 68550, 77950],
+      },
+      {
+        engine: "elevenlabs",
+        label: "Voz calorosa",
+        audioUrl: "https://storage.googleapis.com/images-gen/sleep-audio/a-barca-do-rio-mansinho-elevenlabs.mp3",
+        paragraphTimestamps: [0, 12067, 26084, 39916, 54816, 66093, 81179, 94778, 109725],
+      },
+    ],
   },
   {
     slug: "o-jardim-que-dorme",
@@ -67,6 +109,20 @@ export const sleepStories: ISleepStory[] = [
       "As luzes dos vagalumes começaram a piscar mais devagar, mais devagar, como pequenas lanternas ficando com sono.",
       "O jardim inteiro, flor por flor, folha por folha, foi ficando cada vez mais calmo e silencioso.",
       "E sob o céu estrelado, o jardim que dorme descansou em paz, esperando tranquilo a chegada de um novo dia.",
+    ],
+    voices: [
+      {
+        engine: "openai",
+        label: "Voz suave",
+        audioUrl: "https://storage.googleapis.com/images-gen/sleep-audio/o-jardim-que-dorme-openai.mp3",
+        paragraphTimestamps: [0, 8650, 17950, 30200, 39250, 48900, 59800, 70300, 81550],
+      },
+      {
+        engine: "elevenlabs",
+        label: "Voz calorosa",
+        audioUrl: "https://storage.googleapis.com/images-gen/sleep-audio/o-jardim-que-dorme-elevenlabs.mp3",
+        paragraphTimestamps: [0, 11277, 26363, 45489, 60017, 74592, 90142, 104902, 120638],
+      },
     ],
   },
 ];
