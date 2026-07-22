@@ -5,6 +5,16 @@ import { ISleepStory } from "@/interfaces/ISleepStory";
 const VOICE_STORAGE_KEY = "modo_soninho_voice";
 const FADE_MS = 300;
 
+// End-of-story ambient noise tail - see ship-white-noise.ts for how this file
+// is generated (synthesized brown noise, baked quiet so it's still ambient-level
+// on iOS Safari, where HTMLMediaElement.volume can't be set - see fadeVolume below).
+const NOISE_LOOP_URL = "https://storage.googleapis.com/images-gen/sleep-audio/ambient-brown-noise.mp3";
+const NOISE_TARGET_VOLUME = 1.0;
+const NOISE_FADE_MS = 2500;
+// Bounded tail when no sleep timer was chosen, so the loop doesn't run all
+// night unattended if nobody set a timer and nobody comes back to tap Stop.
+const NOISE_DEFAULT_MINUTES = 15;
+
 function fireGtagEvent(eventName: string, params?: Record<string, unknown>) {
   if (typeof (window as any).gtag === "function") {
     (window as any).gtag("event", eventName, params);
@@ -197,20 +207,40 @@ const FallbackMessage = styled.p`
   font-size: 0.9rem;
 `;
 
+const NoiseLabel = styled.p`
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.9rem;
+  font-style: italic;
+  margin: 0 0 24px 0;
+`;
+
 export default function SleepNarrationPlayer({ story, onExit }: ISleepNarrationPlayerProps) {
   const [voiceIndex, setVoiceIndex] = useState(0);
   const [currentParagraphIndex, setCurrentParagraphIndex] = useState(0);
-  const [playState, setPlayState] = useState<"idle" | "playing" | "paused">("idle");
+  const [playState, setPlayState] = useState<"idle" | "playing" | "paused" | "noise">("idle");
   const [sleepTimerMinutes, setSleepTimerMinutes] = useState<number | null>(null);
   const [loadError, setLoadError] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const noiseAudioRef = useRef<HTMLAudioElement | null>(null);
   const sleepTimerHandleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fadeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const noiseFadeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hasStartedRef = useRef(false);
   const hasFiredHalfwayRef = useRef(false);
   const startedAtRef = useRef<number | null>(null);
+  const noiseStartedAtRef = useRef<number | null>(null);
   const pendingAutoplayRef = useRef(false);
+  // Unlocks the noise <audio> element for later gesture-less play() once,
+  // inside handlePlay's real user gesture - see handlePlay below.
+  const noisePrimedRef = useRef(false);
+  // Mirrors playState for use inside long-lived setTimeout closures (the
+  // sleep timer, the no-timer noise fallback) and the media-session action
+  // handlers - those closures freeze whatever `playState` was at the render
+  // they were scheduled/registered in, which is stale by the time they fire.
+  // handleStop reads this ref instead of the `playState` state variable so
+  // it always branches on the CURRENT phase regardless of who calls it.
+  const playStateRef = useRef<"idle" | "playing" | "paused" | "noise">("idle");
 
   const currentVoice = story.voices[voiceIndex];
 
@@ -234,8 +264,13 @@ export default function SleepNarrationPlayer({ story, onExit }: ISleepNarrationP
     return () => {
       if (sleepTimerHandleRef.current) clearTimeout(sleepTimerHandleRef.current);
       if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current);
+      if (noiseFadeIntervalRef.current) clearInterval(noiseFadeIntervalRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    playStateRef.current = playState;
+  }, [playState]);
 
   const clearSleepTimer = () => {
     if (sleepTimerHandleRef.current) {
@@ -250,11 +285,37 @@ export default function SleepNarrationPlayer({ story, onExit }: ISleepNarrationP
     hasStartedRef.current = false;
     hasFiredHalfwayRef.current = false;
     startedAtRef.current = null;
+    noiseStartedAtRef.current = null;
   };
 
   const handlePlay = () => {
     const audio = audioRef.current;
     if (!audio) return;
+
+    // One-time, inside this real user gesture: silently play+pause the noise
+    // element so iOS Safari treats it as unlocked for the later gesture-less
+    // play() call in enterNoisePhase() when the story ends. Without this, the
+    // end-of-story noise tail silently never plays on iOS - the narration
+    // element got unlocked by this same gesture, but the noise element is a
+    // separate <audio> that's never been played from a tap.
+    if (!noisePrimedRef.current) {
+      noisePrimedRef.current = true;
+      const noiseAudio = noiseAudioRef.current;
+      if (noiseAudio) {
+        noiseAudio.muted = true;
+        noiseAudio
+          .play()
+          .then(() => {
+            noiseAudio.pause();
+            noiseAudio.currentTime = 0;
+            noiseAudio.muted = false;
+          })
+          .catch(() => {
+            // Priming failed - the noise tail will fail silently later via
+            // enterNoisePhase's own .catch(), no worse than before this existed.
+          });
+      }
+    }
 
     if (!hasStartedRef.current) {
       hasStartedRef.current = true;
@@ -280,8 +341,29 @@ export default function SleepNarrationPlayer({ story, onExit }: ISleepNarrationP
       audio.pause();
       audio.currentTime = 0;
     }
+    const noiseAudio = noiseAudioRef.current;
+    if (noiseAudio) {
+      noiseAudio.pause();
+      noiseAudio.currentTime = 0;
+    }
     clearSleepTimer();
-    if (hasStartedRef.current) {
+
+    // Branch on playStateRef (not the playState state variable, and not just
+    // hasStartedRef) so a stop from the noise phase reports noise listening
+    // time instead of double-reporting narration progress for a story that
+    // already fired sleep_story_completed - and stays correct even when this
+    // is invoked from a setTimeout/media-session closure scheduled in an
+    // earlier, now-stale render (see playStateRef's declaration comment).
+    if (playStateRef.current === "noise") {
+      const noiseMinutes = noiseStartedAtRef.current
+        ? Math.round(((Date.now() - noiseStartedAtRef.current) / 60000) * 10) / 10
+        : 0;
+      fireGtagEvent("sleep_noise_stopped", {
+        story: story.slug,
+        voice: currentVoice.engine,
+        noise_minutes: noiseMinutes,
+      });
+    } else if (hasStartedRef.current) {
       const listenedMinutes = startedAtRef.current
         ? Math.round(((Date.now() - startedAtRef.current) / 60000) * 10) / 10
         : 0;
@@ -310,8 +392,41 @@ export default function SleepNarrationPlayer({ story, onExit }: ISleepNarrationP
 
   const handleEnded = () => {
     fireGtagEvent("sleep_story_completed", { story: story.slug, voice: currentVoice.engine });
-    clearSleepTimer();
-    resetProgress();
+    enterNoisePhase();
+  };
+
+  // Story finished naturally - crossfade into the ambient noise loop instead
+  // of going silent, since sudden silence is exactly what wakes a drowsy
+  // child. Deliberately does NOT call clearSleepTimer(): if a sleep timer was
+  // set and hasn't elapsed yet, it keeps counting down and its existing
+  // handleStop callback now stops the noise too - so "30 minutos" means 30
+  // minutes of sleep environment, not capped at whichever story's length. If
+  // no timer was set, arm a bounded fallback so the loop doesn't run all
+  // night unattended.
+  const enterNoisePhase = () => {
+    setPlayState("noise");
+    noiseStartedAtRef.current = Date.now();
+    fireGtagEvent("sleep_noise_started", { story: story.slug, voice: currentVoice.engine });
+
+    const noiseAudio = noiseAudioRef.current;
+    if (noiseAudio) {
+      noiseAudio.volume = 0;
+      noiseAudio
+        .play()
+        .then(() => {
+          fadeVolume(noiseAudio, 0, NOISE_TARGET_VOLUME, NOISE_FADE_MS, () => {}, noiseFadeIntervalRef);
+        })
+        .catch(() => {
+          // Autoplay rejected (priming failed or unsupported browser) - no
+          // ambient sound plays, but nothing else breaks; Stop still works.
+        });
+    }
+
+    if (sleepTimerMinutes === null) {
+      sleepTimerHandleRef.current = setTimeout(() => {
+        handleStop();
+      }, NOISE_DEFAULT_MINUTES * 60_000);
+    }
   };
 
   const handleSleepTimerChange = (minutes: number | null) => {
@@ -440,6 +555,10 @@ export default function SleepNarrationPlayer({ story, onExit }: ISleepNarrationP
         style={{ display: "none" }}
       />
 
+      {/* End-of-story ambient noise tail. Not remounted on voice switch (no
+          key prop) - it's one shared loop independent of narration voice. */}
+      <audio ref={noiseAudioRef} src={NOISE_LOOP_URL} loop preload="none" style={{ display: "none" }} />
+
       <ExitButton onClick={onExit}>‹ Voltar</ExitButton>
       <StoryTitle>{story.title}</StoryTitle>
 
@@ -457,8 +576,10 @@ export default function SleepNarrationPlayer({ story, onExit }: ISleepNarrationP
         ))}
       </ProgressRow>
 
+      {playState === "noise" && <NoiseLabel>🌙 Som suave tocando para embalar o sono...</NoiseLabel>}
+
       <Controls>
-        {playState === "playing" ? (
+        {playState === "noise" ? null : playState === "playing" ? (
           <ControlButton onClick={handlePause} title="Pausar">
             ⏸
           </ControlButton>
