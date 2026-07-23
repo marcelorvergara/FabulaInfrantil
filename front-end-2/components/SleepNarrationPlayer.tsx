@@ -193,6 +193,7 @@ const SleepTimerFieldset = styled.fieldset`
 
 const SleepTimerLegend = styled.legend`
   padding: 0;
+  margin: 0 0 8px 0;
   color: rgba(255, 255, 255, 0.6);
   font-size: 0.85rem;
 `;
