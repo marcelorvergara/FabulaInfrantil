@@ -1,0 +1,7 @@
+{
+  /* Typechecks scripts/ (excluded from tsconfig.json's compile — see the comment there).
+     Only meaningful where front-end-2/ is present alongside back-end/, i.e. a full repo
+     checkout (local dev, CI) — never used by `npm run build` or App Engine's own rebuild. */
+  "extends": "./tsconfig.json",
+  "exclude": []
+}

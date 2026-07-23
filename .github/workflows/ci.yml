@@ -22,6 +22,7 @@ jobs:
 
       - run: npm ci
       - run: npx tsc --noEmit
+      - run: npm run typecheck:scripts
 
   check-frontend:
     name: Build frontend

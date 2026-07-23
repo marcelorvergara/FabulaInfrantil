@@ -5,6 +5,7 @@
   "main": "index.ts",
   "scripts": {
     "build": "npx tsc",
+    "typecheck:scripts": "npx tsc --noEmit -p tsconfig.scripts.json",
     "start": "node dist/index.js",
     "dev": "SET ENV_ARG=DEV&& concurrently \"npx tsc --watch\" \"nodemon -q dist/index.js\"",
     "test": "echo \"Error: no test specified\" && exit 1"

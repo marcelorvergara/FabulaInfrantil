@@ -99,5 +99,12 @@
     /* Completeness */
     // "skipDefaultLibCheck": true,                      /* Skip type checking .d.ts files that are included with TypeScript. */
     "skipLibCheck": true /* Skip type checking all .d.ts files. */
-  }
+  },
+  /* scripts/ imports front-end-2/data/sleepStories.ts (see "@/*" mapping above), which only
+     exists in a full repo checkout. `gcloud app deploy` uploads just this back-end/ directory as
+     the App Engine source, so its own buildpack rebuild has no front-end-2/ and TS2307s on that
+     import. scripts/ isn't part of the deployed app (see CLAUDE.md), so exclude it from the
+     compile this config drives (npm run build, and App Engine's own rebuild) — see
+     tsconfig.scripts.json for typechecking it where the full repo is available (CI). */
+  "exclude": ["scripts"]
 }
