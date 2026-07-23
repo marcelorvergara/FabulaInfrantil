@@ -181,26 +181,69 @@ const VoiceToggle = styled.button`
   }
 `;
 
-const SleepTimerRow = styled.div`
+const SleepTimerFieldset = styled.fieldset`
+  border: none;
+  margin: 0 0 0 0;
+  padding: 0;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+`;
+
+const SleepTimerLegend = styled.legend`
+  padding: 0;
   color: rgba(255, 255, 255, 0.6);
   font-size: 0.85rem;
 `;
 
-const SleepTimerSelect = styled.select`
-  appearance: none;
-  -webkit-appearance: none;
-  font: inherit;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
-  color: rgba(255, 255, 255, 0.85);
-  padding: 6px 10px;
-  font-size: 0.85rem;
+const SleepTimerOptions = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
 `;
+
+const SleepTimerOption = styled.label<{ $active: boolean }>`
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid ${(props) => (props.$active ? "#ffd700" : "rgba(255, 255, 255, 0.2)")};
+  background: ${(props) =>
+    props.$active ? "rgba(255, 215, 0, 0.12)" : "rgba(255, 255, 255, 0.06)"};
+  color: ${(props) => (props.$active ? "#ffd700" : "rgba(255, 255, 255, 0.75)")};
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+
+  &:hover {
+    border-color: rgba(255, 215, 0, 0.7);
+  }
+
+  &:focus-within {
+    outline: 2px solid #ffd700;
+    outline-offset: 2px;
+  }
+`;
+
+const HiddenRadio = styled.input`
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+`;
+
+const SLEEP_TIMER_OPTIONS: { minutes: number | null; label: string }[] = [
+  { minutes: null, label: "Até o fim" },
+  { minutes: 5, label: "5 min" },
+  { minutes: 15, label: "15 min" },
+  { minutes: 30, label: "30 min" },
+];
 
 const FallbackMessage = styled.p`
   color: rgba(255, 255, 255, 0.6);
@@ -602,21 +645,22 @@ export default function SleepNarrationPlayer({ story, onExit }: ISleepNarrationP
         </VoiceToggle>
       )}
 
-      <SleepTimerRow>
-        <label htmlFor="sleep-timer">Parar sozinho em:</label>
-        <SleepTimerSelect
-          id="sleep-timer"
-          value={sleepTimerMinutes ?? ""}
-          onChange={(e) =>
-            handleSleepTimerChange(e.target.value === "" ? null : Number(e.target.value))
-          }
-        >
-          <option value="">Até o fim da história</option>
-          <option value="5">5 minutos</option>
-          <option value="15">15 minutos</option>
-          <option value="30">30 minutos</option>
-        </SleepTimerSelect>
-      </SleepTimerRow>
+      <SleepTimerFieldset>
+        <SleepTimerLegend>Parar sozinho em:</SleepTimerLegend>
+        <SleepTimerOptions>
+          {SLEEP_TIMER_OPTIONS.map((opt) => (
+            <SleepTimerOption key={opt.label} $active={sleepTimerMinutes === opt.minutes}>
+              <HiddenRadio
+                type="radio"
+                name="sleep-timer"
+                checked={sleepTimerMinutes === opt.minutes}
+                onChange={() => handleSleepTimerChange(opt.minutes)}
+              />
+              {opt.label}
+            </SleepTimerOption>
+          ))}
+        </SleepTimerOptions>
+      </SleepTimerFieldset>
     </Wrap>
   );
 }
