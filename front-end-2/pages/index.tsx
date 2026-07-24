@@ -34,15 +34,11 @@ const LeftPage = dynamic(() => import("@/components/LeftPage"), {
   loading: () => <div></div>,
   ssr: false,
 });
-import {
-  getText,
-  shareStoryHelper,
-  pollShareReady,
-} from "@/helpers/fetchHelper";
+import { getText, shareStoryHelper } from "@/helpers/fetchHelper";
 import { IMessage, IResult } from "@/interfaces/IResult";
 import { useEffect, useState } from "react";
 import styled from "styled-components";
-import { getFirst60Percent } from "@/helpers/generalFunctions";
+import { getFirst60Percent, getSiteBaseUrl } from "@/helpers/generalFunctions";
 import dynamic from "next/dynamic";
 import { useStoryImages } from "@/hooks/useStoryImages";
 import { useRouter } from "next/router";
@@ -165,6 +161,7 @@ export default function Home() {
   const [currentPart, setCurrentPart] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [shareStatus, setShareStatus] = useState<"idle" | "sharing" | "copied" | "error">("idle");
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
 
   const handleKw = (kw: string) => {
     const resolvedKw = kw === "" ? "Uma história legal" : kw;
@@ -333,6 +330,7 @@ export default function Home() {
     setCurrentPart(0);
     setErrorMessage(null);
     setShareStatus("idle");
+    setShareUrl(null);
   };
 
   useEffect(() => {
@@ -350,8 +348,15 @@ export default function Home() {
   }, [currentPart]);
 
   async function shareStory() {
+    // Open the tab synchronously, still inside the click's user-gesture context — awaiting
+    // shareStoryHelper first (now genuinely slow: it copies images server-side) would make
+    // browsers, Safari especially, treat a later window.open as a blocked popup.
+    const shareWindow = window.open("", "_blank");
+
     fireGtagEvent("share_clicked");
     setShareStatus("sharing");
+    setShareUrl(null);
+
     const storyId = await shareStoryHelper(
       story,
       firstImage,
@@ -361,22 +366,30 @@ export default function Home() {
 
     if (storyId !== null) {
       const storyIdJson = await storyId.json();
-      const shareUrl = `https://story.fabulainfantil.com/shareStory/${storyIdJson}`;
+      const url = `${getSiteBaseUrl()}/historias/${storyIdJson}`;
       try {
         const prev = JSON.parse(localStorage.getItem("fabula_history") || "[]");
         prev.unshift({ storyId: storyIdJson, keyword, firstImage, date: new Date().toISOString() });
         localStorage.setItem("fabula_history", JSON.stringify(prev.slice(0, 10)));
       } catch {}
-      await pollShareReady(storyIdJson);
-      window.open(shareUrl, "_blank", "noopener,noreferrer");
+
+      if (shareWindow) {
+        shareWindow.location.href = url;
+      } else {
+        // Popup was blocked outright — fall back to a visible link in the UI alongside the
+        // clipboard copy below.
+        setShareUrl(url);
+      }
+
       try {
-        await navigator.clipboard.writeText(shareUrl);
+        await navigator.clipboard.writeText(url);
         setShareStatus("copied");
       } catch {
         setShareStatus("error");
       }
       setTimeout(() => setShareStatus("idle"), 3000);
     } else {
+      shareWindow?.close();
       setShareStatus("error");
       setTimeout(() => setShareStatus("idle"), 3000);
     }
@@ -445,7 +458,12 @@ export default function Home() {
               image={thirdImage}
               imageError={image3Error}
             />
-            <BackCover onSendReset={handleReset} shareStory={shareStory} shareStatus={shareStatus} />
+            <BackCover
+              onSendReset={handleReset}
+              shareStory={shareStory}
+              shareStatus={shareStatus}
+              shareUrl={shareUrl}
+            />
           </RightSide>
         </BookSpread>
       </MotherDiv>

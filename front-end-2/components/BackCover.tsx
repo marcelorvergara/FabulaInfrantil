@@ -59,6 +59,19 @@ const Button = styled.button<{ $loading?: boolean }>`
   animation: ${(p) => (p.$loading ? pulse : "none")} 1.2s ease-in-out infinite;
 `;
 
+const FallbackLinkRow = styled.div`
+  width: 100%;
+  text-align: center;
+  margin: -10px 0 20px;
+`;
+
+const FallbackLink = styled.a`
+  color: palevioletred;
+  font-size: 0.85rem;
+  font-family: "Courier New", Courier, monospace;
+  text-decoration: underline;
+`;
+
 const SupportSection = styled.div`
   width: 100%;
   margin-top: 8px;
@@ -160,12 +173,14 @@ export interface IBackCoverProps {
   onSendReset: (cond: boolean) => void;
   shareStory: () => void;
   shareStatus: "idle" | "sharing" | "copied" | "error";
+  shareUrl?: string | null;
 }
 
 export default function BackCover({
   onSendReset,
   shareStory,
   shareStatus,
+  shareUrl,
 }: IBackCoverProps) {
   return (
     <CenterBook>
@@ -190,6 +205,14 @@ export default function BackCover({
               : "Compartilhar"}
           </Button>
         </ButtonRow>
+
+        {shareUrl && (
+          <FallbackLinkRow>
+            <FallbackLink href={shareUrl} target="_blank" rel="noopener noreferrer">
+              Abrir link ↗
+            </FallbackLink>
+          </FallbackLinkRow>
+        )}
 
         <SupportSection>
           <SupportHeading>Apoiar o projeto</SupportHeading>

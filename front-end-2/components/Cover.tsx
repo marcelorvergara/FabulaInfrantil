@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import styled, { css, keyframes } from "styled-components";
+import { getSiteBaseUrl } from "@/helpers/generalFunctions";
 
 function fireGtagEvent(eventName: string, params?: Record<string, unknown>) {
   if (typeof (window as any).gtag === "function") {
@@ -347,7 +348,7 @@ export default function Book() {
             {history.slice(0, 3).map((item) => (
               <HistoryItem
                 key={item.storyId}
-                href={`https://story.fabulainfantil.com/shareStory/${item.storyId}`}
+                href={`${getSiteBaseUrl()}/historias/${item.storyId}`}
                 target="_blank"
                 rel="noreferrer"
               >

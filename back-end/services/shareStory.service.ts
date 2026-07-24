@@ -13,17 +13,31 @@ async function storeImage(
   firstImg: string,
   secondImg: string,
   thirdImg: string
-) {
+): Promise<string[]> {
   return await ShareStory.storeImage(storyId, [firstImg, secondImg, thirdImg]);
 }
 
-async function checkReady(storyId: string): Promise<boolean> {
-  return await ShareStory.checkReady(storyId);
+async function storeImagesSettled(
+  storyId: string,
+  firstImg: string,
+  secondImg: string,
+  thirdImg: string
+): Promise<(string | null)[]> {
+  return await ShareStory.storeImagesSettled(storyId, [
+    firstImg,
+    secondImg,
+    thirdImg,
+  ]);
+}
+
+async function setImageExts(storyId: string, imageExts: string[]) {
+  return await ShareStory.setImageExts(storyId, imageExts);
 }
 
 export default {
   shareStory,
   getStory,
   storeImage,
-  checkReady,
+  storeImagesSettled,
+  setImageExts,
 };
