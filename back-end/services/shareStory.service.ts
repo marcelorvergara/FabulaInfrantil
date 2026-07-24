@@ -30,7 +30,7 @@ async function storeImagesSettled(
   ]);
 }
 
-async function setImageExts(storyId: string, imageExts: string[]) {
+async function setImageExts(storyId: string, imageExts: (string | null)[]) {
   return await ShareStory.setImageExts(storyId, imageExts);
 }
 

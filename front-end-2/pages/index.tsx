@@ -357,38 +357,47 @@ export default function Home() {
     setShareStatus("sharing");
     setShareUrl(null);
 
-    const storyId = await shareStoryHelper(
-      story,
-      firstImage,
-      secondImage,
-      thirdImage
-    );
+    try {
+      const storyId = await shareStoryHelper(
+        story,
+        firstImage,
+        secondImage,
+        thirdImage
+      );
 
-    if (storyId !== null) {
-      const storyIdJson = await storyId.json();
-      const url = `${getSiteBaseUrl()}/historias/${storyIdJson}`;
-      try {
-        const prev = JSON.parse(localStorage.getItem("fabula_history") || "[]");
-        prev.unshift({ storyId: storyIdJson, keyword, firstImage, date: new Date().toISOString() });
-        localStorage.setItem("fabula_history", JSON.stringify(prev.slice(0, 10)));
-      } catch {}
+      if (storyId !== null) {
+        const storyIdJson = await storyId.json();
+        const url = `${getSiteBaseUrl()}/historias/${storyIdJson}`;
+        try {
+          const prev = JSON.parse(localStorage.getItem("fabula_history") || "[]");
+          prev.unshift({ storyId: storyIdJson, keyword, firstImage, date: new Date().toISOString() });
+          localStorage.setItem("fabula_history", JSON.stringify(prev.slice(0, 10)));
+        } catch {}
 
-      if (shareWindow) {
-        shareWindow.location.href = url;
+        if (shareWindow) {
+          shareWindow.location.href = url;
+        } else {
+          // Popup was blocked outright — fall back to a visible link in the UI alongside the
+          // clipboard copy below.
+          setShareUrl(url);
+        }
+
+        try {
+          await navigator.clipboard.writeText(url);
+          setShareStatus("copied");
+        } catch {
+          setShareStatus("error");
+        }
+        setTimeout(() => setShareStatus("idle"), 3000);
       } else {
-        // Popup was blocked outright — fall back to a visible link in the UI alongside the
-        // clipboard copy below.
-        setShareUrl(url);
-      }
-
-      try {
-        await navigator.clipboard.writeText(url);
-        setShareStatus("copied");
-      } catch {
+        shareWindow?.close();
         setShareStatus("error");
+        setTimeout(() => setShareStatus("idle"), 3000);
       }
-      setTimeout(() => setShareStatus("idle"), 3000);
-    } else {
+    } catch (error) {
+      // shareStoryHelper exhausted its retries and rethrew — the blank tab would otherwise sit
+      // open and empty forever, with the button stuck on "Preparando link...".
+      console.error(error);
       shareWindow?.close();
       setShareStatus("error");
       setTimeout(() => setShareStatus("idle"), 3000);

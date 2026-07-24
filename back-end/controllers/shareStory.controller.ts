@@ -62,25 +62,26 @@ async function getStoryData(req: Request, res: Response, next: NextFunction) {
     }
 
     const narrative: string[] = docData.story.story;
-    let imageExts: (string | null)[] | undefined = docData.imageExts;
+    let imageExts: (string | null)[] = docData.imageExts ?? [null, null, null];
 
-    if (!imageExts) {
-      // Legacy doc from before this change: images were never copied at share time. The
-      // original (temp) image URLs are still recoverable from the doc itself, so back-fill
-      // on demand instead of requiring a separate migration.
+    if (imageExts.some((ext) => ext === null)) {
+      // Legacy doc, or a doc with a partially-failed prior backfill: the original (temp) image
+      // URLs are still recoverable from the doc itself, so back-fill on demand instead of
+      // requiring a separate migration. copyOneImage checks the permanent destination before
+      // touching the temp source, so slots already resolved here come back near-free — only the
+      // genuinely still-missing slots hit the (possibly expired) temp URL.
       const { firstImage, secondImage, thirdImage } = docData.story;
       if (firstImage && secondImage && thirdImage) {
-        imageExts = await ShareStory.storeImagesSettled(
+        const resolvedSoFar = imageExts;
+        const backfilled = await ShareStory.storeImagesSettled(
           storyId,
           firstImage,
           secondImage,
           thirdImage
         );
-        if (imageExts.every((ext) => ext !== null)) {
-          await ShareStory.setImageExts(storyId, imageExts as string[]);
-        }
-      } else {
-        imageExts = [null, null, null];
+        // Keep whatever was already resolved if this attempt didn't improve on it.
+        imageExts = backfilled.map((ext, i) => ext ?? resolvedSoFar[i]);
+        await ShareStory.setImageExts(storyId, imageExts);
       }
     }
 
