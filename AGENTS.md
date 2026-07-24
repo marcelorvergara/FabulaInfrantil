@@ -25,6 +25,14 @@ Use TypeScript and two-space indentation. Keep existing import ordering and use 
 
 Keep secrets in ignored local files: `back-end/.env` and `front-end-2/.env.local`. Never commit API keys, service-account JSON, or generated credentials. Backend changes involving CORS, internal metrics, OpenAI, Fal, Firestore, or GCS should document required environment variables and avoid logging secrets.
 
+## Shared Story Flow
+
+Shared stories are served by the main Next.js app at `/historias/:storyId` (`pages/historias/[storyId].tsx`), which SSR-fetches `GET /shareStory/:storyId/data` from the Express API. Keep this page server-rendered so Open Graph and Twitter metadata are available to social crawlers.
+
+`POST /shareStory` is the readiness boundary: it stores the Firestore document and copies all three generated images from `images-gen/temp/` to the permanent per-story GCS location before returning the ID. Do not reintroduce client polling or image copying during normal shared-page reads. Store the real image extension and `Content-Type` in the share metadata; image sources must remain restricted to system-generated GCS temp URLs.
+
+The legacy `https://story.fabulainfantil.com/shareStory/:storyId` endpoint currently redirects with a temporary `302` to the Next.js route. Keep legacy-data fallback behavior when changing this flow, since older Firestore documents may not yet have permanent image metadata or copies. Leave the EJS template/dependency cleanup and any permanent redirect change as separate, production-validated work.
+
 ## Commit & Pull Request Guidelines
 
 Follow the existing Conventional Commit style: `feat: add sleep timer`, `fix: correct timer spacing`, or `docs: update telemetry notes`. Keep commits scoped and imperative. PRs should explain the user-visible change, note configuration or deployment impact, link the issue when available, and include screenshots or a short recording for frontend/UI changes. Ensure GitHub Actions' backend type checks and frontend build pass.

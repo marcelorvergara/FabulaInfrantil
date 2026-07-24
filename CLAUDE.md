@@ -1,6 +1,7 @@
 # Fábula Infantil — Claude Reference
 
 > Full product design, UX flow, and z-index architecture rationale → [DESIGN.md](DESIGN.md)
+> Feature deep-dives (rationale, gotchas, non-obvious decisions) → [MODO_SONINHO.md](MODO_SONINHO.md), [SHARING.md](SHARING.md)
 
 AI-powered children's storytelling platform. Live at **https://fabulainfantil.com/**
 
@@ -37,6 +38,7 @@ Frontend (Next.js/Vercel) → Backend (Express/App Engine) → OpenAI GPT-4o-min
 | UI | React 18 + styled-components |
 | Analytics | Vercel Analytics + Google Ads (`AW-1032977240`) |
 | Cookie consent | `CookieBanner.tsx` — consent stored in `localStorage` key `cookie_consent`; Google Consent Mode v2 (default denied, cookieless pings, upgraded to granted on acceptance) — LGPD |
+| Known gotcha | No `ServerStyleSheet` extraction in `_document.tsx` — every page gets a brief unstyled flash before hydration completes (app-wide, pre-existing, not page-specific) |
 
 ---
 
@@ -50,7 +52,7 @@ back-end/
 ├── controllers/
 │   ├── GenerateController.ts      # Story generation
 │   ├── GenerateImageController.ts # Image download → GCS upload
-│   ├── ShareStoryController.ts    # Story sharing
+│   ├── ShareStoryController.ts    # Story sharing — synchronous image copy at creation, legacy-doc backfill, 302 redirect for pre-migration links; see "Story Sharing" below
 │   └── internal.controller.ts     # GET /internal/llm-metrics — 24h telemetry aggregates
 ├── services/                      # OpenAI + fal.ai calls, exponential backoff (5 retries)
 ├── repository/                    # Firestore read/write, incl. llmTelemetry.repo.ts
@@ -60,7 +62,7 @@ back-end/
 │   ├── render-sleep-audio.ts      # Modo Soninho TTS bake-off — blind-renders one story through 2-3 engines for listening comparison
 │   ├── ship-sleep-audio.ts        # Renders all 4 sleep stories with one or more engines (--engines a,b), transcodes to mp3, uploads one file per story per engine to GCS sleep-audio/ — see "Modo Soninho" below
 │   └── ship-white-noise.ts        # Generates the Modo Soninho end-of-story ambient noise loop (ffmpeg anoisesrc, synthesized — not licensed) and uploads it to GCS sleep-audio/ — see "Modo Soninho" below
-└── public/                        # EJS template for share pages
+└── public/                        # EJS template for share pages — dead code since the Story Sharing rework (kept temporarily for rollback; see "Story Sharing" below)
 ```
 
 ### Frontend
@@ -71,6 +73,7 @@ front-end-2/
 ├── pages/index.tsx                # App shell; orchestrates state and routing between pages; reads ?keyword= param → passes to KeywordPage; fires story_started/share_clicked/story_completed gtag events
 ├── pages/historia-para-dormir.tsx  # Static SEO/marketing landing page (bedtime theme); no book-flow state, CTA → /?keyword=sono; see "SEO Landing Pages" below
 ├── pages/modo-soninho.tsx          # Passive bedtime audio MVP (beta, noindex); story picker + SleepNarrationPlayer; see "Modo Soninho" below
+├── pages/historias/[storyId].tsx  # SSR shared-story page (first getServerSideProps page in the app); see "Story Sharing" below
 ├── hooks/
 │   └── useStoryImages.ts          # Image state + generation logic (firstImage/secondImage/thirdImage, loading, errors)
 ├── components/
@@ -81,7 +84,7 @@ front-end-2/
 │   ├── ThirdPage.tsx              # z-index 4; Part 1 + branch options
 │   ├── FourthPage.tsx             # z-index 3; Part 2 + branch options
 │   ├── LastPage.tsx               # z-index 2; Part 3 ending
-│   ├── BackCover.tsx              # z-index 1; share + reset + PIX QR; shareStatus: "idle"|"sharing"|"copied"|"error"
+│   ├── BackCover.tsx              # z-index 1; share + reset + PIX QR; shareStatus: "idle"|"sharing"|"copied"|"error"; shareUrl prop renders a fallback link if the share popup was blocked
 │   ├── LeftPage.tsx               # Illustration panel (only when currentPart > 0); shows error state per image
 │   ├── SpinnerAnimation.tsx       # Loading with Portuguese phrases
 │   ├── Modal.tsx                  # Fullscreen image viewer
@@ -92,10 +95,11 @@ front-end-2/
 │   └── sleepStories.ts            # Fixed library of pt-BR bedtime stories (ISleepStory[]) for /modo-soninho — not GPT-generated, repetition is deliberate; voices[] populated by back-end/scripts/ship-sleep-audio.ts
 ├── interfaces/
 │   ├── IResult.ts                 # IMessage / IResult — story generation response shape
-│   └── ISleepStory.ts             # slug/title/teaser/estimatedMinutes/paragraphs/voices[] shape for sleepStories.ts — each voice is { engine, label, audioUrl, paragraphTimestamps }
+│   ├── ISleepStory.ts             # slug/title/teaser/estimatedMinutes/paragraphs/voices[] shape for sleepStories.ts — each voice is { engine, label, audioUrl, paragraphTimestamps }
+│   └── ISharedStory.ts            # title/paragraphs/images[] shape returned by GET /shareStory/:id/data
 └── helpers/
-    ├── fetchHelper.ts             # getText, generateImage, shareStoryHelper, pollShareReady
-    ├── generalFunctions.ts        # getFirst60Percent (trims image prompts)
+    ├── fetchHelper.ts             # getText, generateImage, shareStoryHelper
+    ├── generalFunctions.ts        # getFirst60Percent (trims image prompts); getSiteBaseUrl (window.location.origin on client, prod domain as SSR-time fallback — used for share links so they resolve correctly in local/preview/prod)
     └── useTypewriter.ts           # Typewriter effect hook
 ```
 
@@ -107,9 +111,9 @@ front-end-2/
 |---|---|---|
 | `POST` | `/generate/:kw/:age` | GPT-4o-mini story (3-part, branching) |
 | `POST` | `/generateImage` | fal.ai image generation |
-| `POST` | `/shareStory` | Save story to Firestore → returns `storyId` |
-| `GET` | `/shareStory/:storyId/ready` | Returns `{ ready: bool }` — true once all 3 GCS images exist |
-| `GET` | `/shareStory/:storyId` | Retrieve + EJS-render shared story |
+| `POST` | `/shareStory` | Save story to Firestore, then synchronously copy its 3 images to durable GCS storage before responding — the response itself is the readiness signal, no polling needed. Returns `storyId` |
+| `GET` | `/shareStory/:storyId/data` | JSON `{ title, paragraphs, images }` consumed by the SSR page (`pages/historias/[storyId].tsx`); 404 if the doc doesn't exist |
+| `GET` | `/shareStory/:storyId` | Legacy link support — `302` redirect to `https://fabulainfantil.com/historias/:storyId` (no longer renders EJS) |
 | `GET` | `/internal/llm-metrics` | 24h telemetry aggregates; gated by `X-Internal-Key` header (see below) |
 
 ---
@@ -117,19 +121,30 @@ front-end-2/
 ## Data Models
 
 ```typescript
-// Firestore doc ID: SHA-256 of story content
-{ story: string[] }  // [keyword, part1text, part2text, part3text, ...messages]
-
 interface IMessage {
   role: "system" | "user" | "assistant";
   content: string;
 }
 ```
 
+Firestore collection `stories` (doc ID: SHA-256 of the full `POST /shareStory` body, via `generateContentHash` — identical stories/images reuse the same doc):
+```typescript
+{
+  story: {
+    story: string[];       // [keyword, part1, choice1, part2, choice2, part3] — narrative at indices 0/1/3/5, the user's chosen branch text at 2/4
+    firstImage: string;    // original temp image URL at share time (images-gen/temp/...)
+    secondImage: string;
+    thirdImage: string;
+  };
+  imageExts?: (string | null)[];  // set once each image is durably copied; null = not yet copied or copy failed — see "Story Sharing" below
+}
+```
+(The nested `story.story` naming is a historical quirk — the doc's top-level `story` field is the entire original POST body, not just the narrative array.)
+
 Image URL patterns:
 ```
-images-gen/temp/{uuid}.jpg            # temp (generated, not yet shared)
-images-gen/{storyId}/image-{1,2,3}.webp  # permanent (after share)
+images-gen/temp/{uuid}.{jpg,png}                # temp (generated, not yet shared)
+images-gen/{storyId}/image-{1,2,3}.{jpg,png}    # permanent (after share) — extension matches the real Content-Type; anything other than jpeg/png is rejected
 ```
 
 Firestore collection `llm_telemetry` (one doc per `/generate` or `/generateImage` call, written fire-and-forget — never awaited on the response path):
@@ -214,18 +229,8 @@ Fired via a local `fireGtagEvent(name, params?)` helper (guards on `window.gtag`
 
 `story_started`/`share_clicked` are custom events, not conversion actions with a `send_to` label yet — set those up in Google Ads → Metas → Conversões → Nova ação de conversão → **Google tag**, which detects them from the existing tag after they've fired a few times in production.
 
-### Modo Soninho funnel events (`Cover.tsx` + `historia-para-dormir.tsx` + `SleepNarrationPlayer.tsx`)
-Each file has its own local copy of `fireGtagEvent` (intentional duplication, same as `pages/index.tsx` — not a shared helper in this codebase):
-| Event | Trigger | gtag call |
-|---|---|---|
-| `sleep_mode_clicked` | Discreet `🌙 Modo Soninho` link on `Cover.tsx` (homepage, inside the flip content — deactivates with the rest of the cover once `pointer-events: none` kicks in post-flip), and the secondary CTA on `historia-para-dormir.tsx` → `/modo-soninho` | `gtag('event', 'sleep_mode_clicked', { source: 'home' \| 'landing' })` |
-| `sleep_story_started` | First Play tap for a story in `SleepNarrationPlayer`, and again on each voice switch mid-playback (a fresh listen on the new voice) | `gtag('event', 'sleep_story_started', { story: slug, voice: engine })` |
-| `sleep_story_progress` | Halfway paragraph reached, on manual Stop (with `listened_minutes`), and on a mid-playback voice switch (with `listened_minutes` for the *abandoned* voice) | `gtag('event', 'sleep_story_progress', { story: slug, voice: engine, listened_minutes? })` |
-| `sleep_story_completed` | Natural end of the last paragraph only (not on manual Stop or a voice switch) | `gtag('event', 'sleep_story_completed', { story: slug, voice: engine })` |
-| `sleep_noise_started` | Ambient noise tail begins, immediately after `sleep_story_completed` fires | `gtag('event', 'sleep_noise_started', { story: slug, voice: engine })` |
-| `sleep_noise_stopped` | Noise tail ends — manual Stop, lock-screen Stop, the sleep timer (if one governs it), or the no-timer fallback duration | `gtag('event', 'sleep_noise_stopped', { story: slug, voice: engine, noise_minutes })` |
-
-These exist because `sleep_mode_clicked` alone only proves the CTA is noticed — `started`/`progress`/`completed` are what actually validate the listening-behavior hypothesis the MVP is testing. `sleep_mode_clicked`'s `source` param (`"home"` vs `"landing"`) exists specifically to compare which entry point actually drives listens now that the homepage has its own door into the experiment — paid clicks landing on `/` and siphoning straight to a free passive experience will show up here as a shift in `story_started` conversion rate, and `source` plus the funnel events below are what distinguish that being cannibalization vs. found demand. The `voice` param (added once stories shipped with more than one engine) segments the funnel by voice — note that a voice switch means `started` counts are per voice-session, not per child-session. `sleep_noise_started`/`sleep_noise_stopped` carry `voice` too (the narration voice that had just finished, not a property of the noise itself) purely for segmentation consistency with the rest of the table.
+### Modo Soninho funnel events
+`sleep_mode_clicked` / `sleep_story_started` / `sleep_story_progress` / `sleep_story_completed` / `sleep_noise_started` / `sleep_noise_stopped`, defined across `Cover.tsx` + `historia-para-dormir.tsx` + `SleepNarrationPlayer.tsx`. Full trigger/param table and rationale → [MODO_SONINHO.md → Funnel Events](MODO_SONINHO.md#funnel-events).
 
 ---
 
@@ -260,46 +265,19 @@ To add another theme page, copy this pattern with a new keyword/route (e.g. `/hi
 
 ---
 
+## Story Sharing
+
+Shared stories render as a normal Next.js SSR page (`pages/historias/[storyId].tsx`) on `fabulainfantil.com`, not a separate site — `POST /shareStory` now copies images to durable GCS storage synchronously before responding, so the response itself is the readiness signal (no client-side polling). Images are stored with an extension that matches their real `Content-Type` (jpeg/png only) instead of a hardcoded `.webp`. Legacy `story.fabulainfantil.com/shareStory/:id` links get a `302` redirect plus an on-demand image backfill for docs created before this change. Doc/image shapes are in [Data Models](#data-models) above.
+
+Full rationale — the original polling deadlock, the image-copy/backfill design, popup-blocker handling, and deferred cleanup (EJS removal, 301 cutover) — → [SHARING.md](SHARING.md).
+
+---
+
 ## Modo Soninho — Bedtime Audio MVP
 
-Passive, audio-first "bedtime story" experiment at `/modo-soninho` — a deliberate departure from the branching-book flow, testing the hypothesis that a sleep product wants passive listening and repetition, not screen interactivity and novelty. Linked from [historia-para-dormir.tsx](front-end-2/pages/historia-para-dormir.tsx) as a subdued secondary CTA (`🧪 Experimente o Modo Soninho (beta)`) placed under the primary CTA — the primary CTA/copy is untouched and stays the priority path until this MVP shows real return-visit behavior.
+Passive, audio-first "bedtime story" experiment at `/modo-soninho` (beta, `noindex`) — a deliberate departure from the branching-book flow, testing whether a sleep product wants passive listening and repetition rather than screen interactivity. Fixed library of 4 stories, pre-rendered `<audio>` narration (not live TTS) rendered once via `back-end/scripts/render-sleep-audio.ts` (bake-off) and `ship-sleep-audio.ts` (ship), lock-screen Media Session controls, a per-voice `paragraphTimestamps` map (`ISleepStory.voices[]`), and an end-of-story ambient noise tail governed by the sleep timer.
 
-**Deliberate MVP scope (revisit only once the funnel events above show demand):**
-- Fixed library of 4 stories ([data/sleepStories.ts](front-end-2/data/sleepStories.ts)) — repetition is the point for a sleep product, not a limitation; not GPT-generated per session.
-- No PWA / Service Worker / offline caching yet.
-- `<meta name="robots" content="noindex, follow">` on the page — unlike `historia-para-dormir.tsx`'s `index, follow` — since this is an unvalidated experiment that may be reworked or pulled.
-
-**Narration: pre-rendered `<audio>`, not live TTS.** The MVP originally shipped on browser-native `speechSynthesis` (zero infra cost, fastest way to validate the passive-listening format). Once the format proved out, narration moved to real pre-rendered audio — a one-time asset-generation problem, not a runtime-cost one, since the library is fixed and rendered once rather than per session:
-
-1. `back-end/scripts/render-sleep-audio.ts` — blind TTS bake-off. Renders one story through 2–3 engines (Google Cloud TTS, OpenAI `gpt-4o-mini-tts`, optionally ElevenLabs), shuffles the output filenames + writes a `key.json`, so you can score voices by ear (night, phone speaker, real bedtime volume) before knowing which is which.
-2. `back-end/scripts/ship-sleep-audio.ts` — once winning engine(s) are picked, renders all 4 stories with each (`--engines openai,elevenlabs` — supports one or more; the bake-off turned up two winners, and rendering both for the whole library is still a few cents total, not a real cost concern), transcodes each to **mono 96kbps mp3** (spoken narration doesn't need ffmpeg's stereo/128kbps+ defaults — keeps a 5-minute story to ~2–4MB on bedtime Wi-Fi), and uploads to the existing `images-gen` GCS bucket under `sleep-audio/{slug}-{engine}.mp3` (one file per story per engine; same bucket/project/public-read pattern as `GenerateImageController.ts`, not a new bucket). Uploads set `Cache-Control: public, max-age=31536000, immutable` since these files never change post-ship — **if a story/engine is ever re-rendered, upload under a versioned filename (`{slug}-{engine}-v2.mp3`) instead of overwriting**, or the immutable cache header keeps serving the old voice for up to a year.
-3. Both scripts share `back-end/scripts/lib/ttsEngines.ts` (per-paragraph rendering + WAV assembly), so the paragraph/silence-timing math exists in exactly one place.
-
-`ISleepStory.voices` (`ISleepStoryVoice[]`, in `ISleepStory.ts` / `sleepStories.ts`) is what lets multiple engines exist per story. Each voice carries its own `paragraphTimestamps` (cumulative ms offset per paragraph) — **not shared across voices** — because different engines pace speech differently, so `SleepNarrationPlayer.tsx` needs a separate timing map per voice to keep its per-paragraph progress dots + synced text accurate. **Timestamps are measured against the actual assembled PCM stream — including every inserted inter-paragraph silence gap — not the sum of paragraph durations.** Getting this wrong is invisible in a quick spot-check and only shows up later as the progress dots drifting further behind the narration with every paragraph (`assemble()` in `ttsEngines.ts` is where this is computed). `voice.label` is a human-facing string (e.g. "Voz suave") deliberately distinct from `voice.engine` — the UI never needs to say "OpenAI vs ElevenLabs" to a parent at bedtime.
-
-`back-end/tsconfig.json` has a `paths` mapping (`"@/*": ["../front-end-2/*"]`) purely so these scripts — which live in `back-end/` for its OpenAI/GCP credentials, but import `front-end-2/data/sleepStories.ts` for the story content — can resolve that file's `@/interfaces/ISleepStory` alias during typecheck. This does not affect the deployed backend at runtime.
-
-**[SleepNarrationPlayer.tsx](front-end-2/components/SleepNarrationPlayer.tsx)** is a separate component from `TTSButton.tsx` (which is live in the book flow's `ThirdPage`/`FourthPage`/`LastPage` — changing its behavior risked regressing it), built around a single hidden `<audio key={currentVoice.engine} src={currentVoice.audioUrl} />`:
-- **No `crossOrigin` attribute** — plain playback doesn't need it, and GCS objects don't send `Access-Control-Allow-Origin` by default even when publicly readable, so adding `crossOrigin="anonymous"` without a matching bucket CORS rule breaks playback outright (hit this directly: shipped with it set once, got a CORS error on every story). The follow-on roadmap (Web Audio API / `MediaElementAudioSourceNode` / a future LiteRT.js adaptive-narration layer) will need both `crossOrigin="anonymous"` here *and* a CORS rule configured on the `images-gen` bucket (GCS CORS is bucket-wide, not scopable to just `sleep-audio/`) added together at that point — don't add one without the other.
-- Play/Pause/Stop drive `audio.play()`/`audio.pause()`/`audio.currentTime = 0` directly — no more Chrome/Android `speechSynthesis` pause-resume watchdog, no per-paragraph utterance chaining; `<audio>` doesn't have those bugs.
-- Lock-screen controls via the **Media Session API** (`navigator.mediaSession.metadata` + `setActionHandler("play"/"pause"/"stop", ...)`) — for a parent lying in the dark next to an almost-asleep child, pausing without lighting up the phone screen is close to a core requirement for this product, not polish.
-- Fixes the MVP's core screen-lock failure mode: `speechSynthesis` did not reliably keep playing once the screen locked; a real `<audio>` element does.
-
-**Voice toggle**: when a story has more than one `voices[]` entry, a small pill button (`🔊 {label}`) appears next to the controls — clicking cycles to the next voice (`(voiceIndex + 1) % voices.length`). Not a picker/dropdown, deliberately — this is meant to be a light, low-key control, not a new feature surface. Preference is remembered in `localStorage` under `modo_soninho_voice`, matched against `voice.engine`. That read happens inside a mount `useEffect`, **never in the `useState` initializer** — `/modo-soninho` is statically generated, so the server-rendered HTML always reflects `voices[0]`, and reading `localStorage` in the initializer would make a returning user's client render disagree with that HTML and trigger a hydration mismatch (same reasoning as `CookieBanner`'s `cookie_consent` read).
-
-Switching voice **restarts the story from the beginning on the new voice** rather than resuming at an equivalent position — different engines pace speech differently, so "the same position" isn't meaningfully defined across two voices' separate `paragraphTimestamps` arrays. The `<audio>` element is keyed on `currentVoice.engine`, so React fully remounts it on switch (fresh element, no manual `.load()` calls, no stale-`src` edge cases, starts at `currentTime = 0`/`volume = 1` for free). A short volume fade (~300ms, ramping `audio.volume`) softens the cut on switch. **Known platform limitation**: on iOS Safari, `HTMLMediaElement.volume` is effectively read-only — the OS owns hardware volume there — so the fade is a no-op and switching voice is a hard cut on exactly the iPhone-heavy part of the audience. Acceptable for this version (a cut on a deliberate, user-initiated action reads very differently than an unexpected one); the real fix would be a Web Audio `GainNode`, which needs `crossOrigin` + bucket CORS added together at that point (see note above — not wired yet). The sleep timer (if set) intentionally keeps running across a voice switch — only playback progress resets. The post-switch `play()` call happens async, outside the original click's gesture — if the browser rejects it (iOS Safari is the strictest here), the player settles into a clean paused state on the new voice rather than looking like it's playing while silent.
-
-**End-of-story ambient noise tail.** Sudden silence at the natural end of a story is exactly what wakes a drowsy child, so on `handleEnded` the player crossfades into a looping ambient noise track (`ambient-brown-noise.mp3`, generated — not licensed — by `back-end/scripts/ship-white-noise.ts` via ffmpeg's `anoisesrc` filter; brown noise reads as deeper/rain-like versus harsh white noise) instead of going quiet. Two decisions here exist specifically to survive the same iOS Safari constraints already noted above for the voice-switch fade:
-- **Autoplay priming.** The noise `<audio>` element is separate from the narration one and has never been played from a user gesture, so a gesture-less `play()` call from inside the `ended` handler can be silently rejected on iOS. `handlePlay` primes it once per session — inside the real gesture of the user's first Play tap — with a muted `play()` → `pause()`/rewind/unmute sequence, unlocking it for the later programmatic `play()`.
-- **Loudness baked into the asset, not the code.** Since iOS ignores `audio.volume`, targeting a code-side "quiet" volume (e.g. `0.35`) would mean iOS plays the loop at `1.0` — a hard cut ~3x louder than intended, over a child who isn't asleep yet. Instead `ship-white-noise.ts` generates the file itself at low amplitude, the player targets `NOISE_TARGET_VOLUME = 1.0`, and the 0→1 fade (`NOISE_FADE_MS`) is a progressive enhancement where `.volume` is writable — every platform lands at the same perceived loudness, iOS just arrives at it instantly instead of via a ramp. Same residual gap as the voice-switch fade: a real crossfade needs a Web Audio `GainNode`, same `crossOrigin` + bucket CORS prerequisite noted above.
-
-The noise loop is generated as a 5-minute clip, not a ~60s one, even though random noise itself has no audible seam — MP3 encoding adds a few dozen ms of delay/padding at the file boundary, and on `<audio loop>` that reads as a periodic tick every cycle, which is exactly the kind of stimulus this feature exists to avoid. A 5-minute loop (~2MB at mono 96kbps) makes that seam rare enough that most sessions never reach it.
-
-**Timer interaction is the actual point of "governed by the existing sleep timer."** Entering the noise phase deliberately does **not** clear an in-flight sleep timer — if one was set before the story ended, it keeps counting down and its callback now stops the noise too, so "30 minutos" means 30 minutes of sleep environment, not capped at whichever story's runtime happened to be. If no timer was set, a fallback `NOISE_DEFAULT_MINUTES` (15) timer is armed instead, so the loop can't run all night unattended. This surfaced a stale-closure bug during implementation: `handleStop` (invoked from these `setTimeout` closures, and from the Media Session lock-screen Stop handler) branches on the player's phase, but a closure scheduled in an earlier render captures a stale value — most importantly, the pre-existing sleep timer set *before* the story ends is captured before the phase changes to `"noise"`, so without a fix it would misreport the noise-tail stop as ordinary mid-story progress. Fixed with a `playStateRef` that mirrors the `playState` state variable via an effect, read inside `handleStop` instead of the state variable directly — this covers every deferred-closure call site (both timers, the media-session handlers) with one change.
-
-**Gotcha found while building this**: custom-styled `<button>`/`<select>` elements need `appearance: none` (`-webkit-appearance: none`) explicitly set, or native browser button chrome (light gray) paints over the intended dark/subtle `background` — surfaced via Playwright screenshot testing of the story-picker cards, invisible in casual review since the effect is subtle at small icon-button sizes but glaring on larger card-style buttons.
-
-**Known limitation (pre-existing, app-wide, not introduced here)**: [_document.tsx](front-end-2/pages/_document.tsx) has no `ServerStyleSheet` extraction for styled-components, so CSS injects client-side only — there's a brief unstyled flash on first paint before hydration completes, on every page in this app, not just this one. Surfaced during headless screenshot verification of this page (screenshots taken at `load` before hydration finished the first time showed raw unstyled/native HTML); resolves once React hydrates. Worth fixing app-wide at some point, but out of scope for this feature.
+Full pipeline detail, voice-switching/iOS Safari gotchas, the ambient-noise design, the funnel events table, and known limitations → [MODO_SONINHO.md](MODO_SONINHO.md).
 
 ---
 
@@ -309,7 +287,6 @@ The noise loop is generated as a 5-minute clip, not a ~60s one, even though rand
 # Backend
 OPENAI_API_KEY          # OpenAI
 FAL_KEY                 # fal.ai
-GOOGLE_CLOUD_PROJECT    # GCP project
 INTERNAL_API_KEY        # Shared secret for GET /internal/llm-metrics (X-Internal-Key header)
 APP_CRED                # GCS service account keyFilename (images-gen bucket uploads — GenerateImageController + scripts/ship-sleep-audio.ts + scripts/ship-white-noise.ts)
 
