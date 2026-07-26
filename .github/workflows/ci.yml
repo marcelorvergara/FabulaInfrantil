@@ -3,6 +3,8 @@ name: CI
 on:
   pull_request:
     branches: [main]
+  push:
+    branches: ['feature/**', 'hotfix/**', 'chore/**', 'bug/**']
 
 jobs:
   check-backend:
@@ -40,6 +42,7 @@ jobs:
           cache-dependency-path: front-end-2/package-lock.json
 
       - run: npm ci
+      - run: npm run lint
 
       - name: Build
         run: npm run build
