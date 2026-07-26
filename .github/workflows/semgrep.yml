@@ -13,14 +13,22 @@ jobs:
     container:
       image: semgrep/semgrep
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
 
       - name: Run Semgrep
-        run: semgrep scan --config=auto --json --output=semgrep-results.json --error
+        # Baseline against main so this only fails on findings a branch
+        # newly introduces, not the repo's pre-existing backlog -- without
+        # this, every future ticket branch (forked from main) would fail
+        # forever, regardless of what it actually changes. fetch-depth: 0
+        # above already fetched full history for every branch, including
+        # main, so no extra fetch is needed here.
+        run: semgrep scan --config=auto --json --output=semgrep-results.json --error --baseline-commit=origin/main
 
       - name: Upload results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: semgrep-results
           path: semgrep-results.json
