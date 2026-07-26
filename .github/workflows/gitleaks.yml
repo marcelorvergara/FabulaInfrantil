@@ -1,0 +1,26 @@
+name: Gitleaks
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: ['feature/**', 'hotfix/**', 'chore/**', 'bug/**']
+
+jobs:
+  gitleaks:
+    name: Gitleaks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Run Gitleaks
+        run: |
+          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:latest \
+            detect --source=/repo --report-format=json --report-path=/repo/gitleaks-results.json --no-git --exit-code=1
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: gitleaks-results
+          path: gitleaks-results.json
