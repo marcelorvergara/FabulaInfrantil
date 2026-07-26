@@ -239,3 +239,5 @@ Push to the connected GitHub repo — Vercel deploys automatically.
 | `INTERNAL_API_KEY` | Backend | Shared secret checked against the `X-Internal-Key` header on `GET /internal/llm-metrics` |
 | `NEXT_PUBLIC_BACKEND_SRV` | Frontend | Backend base URL |
 | `NEXT_PUBLIC_GA_ID` | Frontend | Google Analytics 4 measurement ID |
+
+<!-- phase7b-e2e 1785079413856 -->
